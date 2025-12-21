@@ -155,7 +155,8 @@ Read-only access:
 
 ```yaml
 inputs:
-  - store: my_store, mode: get
+  - store: my_store
+    mode: get
 ```
 
 #### Deltas Mode
@@ -242,14 +243,15 @@ keys.keys.push(format!("token:{}:transfers", token_addr));
 
 ### Performance Impact
 
-Indexes dramatically improve performance:
+Indexes dramatically improve performance by allowing the system to skip irrelevant blocks:
 
 ```bash
 # Without index: processes all blocks
 substreams run map_transfers -s 17000000 -t +100000
 
-# With index: skips irrelevant blocks
-substreams run map_transfers -s 17000000 -t +100000 --index index_transfers
+# With index: system automatically uses index to skip irrelevant blocks
+# when index_transfers is defined as a dependency
+substreams run map_transfers -s 17000000 -t +100000
 ```
 
 ### Best Practices
@@ -403,4 +405,3 @@ time substreams run map_transfers -s 17000000 -t +1000
 # Check memory usage
 substreams run map_transfers -s 17000000 -t +1000 --debug
 ```
-

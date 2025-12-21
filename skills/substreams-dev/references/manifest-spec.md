@@ -119,17 +119,19 @@ binaries:
 
 ## Network Configuration
 
-Supported networks:
+Supported networks (see [references/networks.md](./networks.md) for complete list):
 
 - `mainnet` - Ethereum Mainnet
-- `polygon` - Polygon
-- `bsc` - Binance Smart Chain
-- `arbitrum` - Arbitrum One
-- `optimism` - Optimism
+- `optimism` - OP Mainnet
+- `arbitrum-one` - Arbitrum One Mainnet
+- `base` - Base Chain
+- `matic` - Polygon Mainnet
+- `bsc` - BNB Smart Chain Mainnet
 - `avalanche` - Avalanche C-Chain
-- `fantom` - Fantom Opera
-- `solana` - Solana Mainnet
-- `near` - NEAR Protocol
+- `fantom` - Fantom Opera Mainnet
+- `solana-mainnet-beta` - Solana Mainnet
+- `near-mainnet` - Near Mainnet
+- And 70+ additional networks...
 
 ## Module Types
 
@@ -189,7 +191,6 @@ Direct blockchain data:
 ```yaml
 inputs:
   - source: sf.ethereum.type.v2.Block
-  - source: sf.ethereum.type.v2.TransactionTrace
 ```
 
 ### Module Inputs
@@ -240,8 +241,8 @@ inputs:
 - name: map_token_transfers
   kind: map
   inputs:
-    - source: sf.ethereum.type.v2.Block
     - params: string  # Token contract address
+    - source: sf.ethereum.type.v2.Block
   output:
     type: proto:my.types.Transfers
 ```
@@ -310,4 +311,3 @@ substreams graph
 # Validate against network
 substreams run -s 1000 -t +10 module_name
 ```
-

@@ -1,96 +1,115 @@
 # Supported Networks
 
-List of blockchain networks supported by Substreams.
+Complete list of blockchain networks supported by Substreams, derived from [The Graph Networks Registry](https://networks-registry.thegraph.com/TheGraphNetworksRegistry.json).
 
-## Ethereum and EVM Networks
+## EVM Networks
 
-### Ethereum Mainnet
-- **Network ID**: `mainnet`
-- **Chain ID**: 1
-- **Endpoint**: `mainnet.eth.streamingfast.io:443`
-- **Block Explorer**: https://etherscan.io
+### Ethereum Networks
+- `mainnet` - Ethereum Mainnet
+- `sepolia` - Ethereum Sepolia Testnet  
+- `holesky` - Ethereum Holesky Testnet
+- `hoodi` - Ethereum Hoodi Testnet
 
-### Ethereum Testnets
+### Layer 2 Networks
+- `optimism` - OP Mainnet
+- `optimism-sepolia` - OP Sepolia Testnet
+- `arbitrum-one` - Arbitrum One Mainnet
+- `arbitrum-sepolia` - Arbitrum Sepolia Testnet
+- `arbitrum-nova` - Arbitrum Nova Mainnet
+- `base` - Base Chain
+- `base-sepolia` - Base Sepolia Testnet
+- `polygon-zkevm` - Polygon zkEVM Mainnet
+- `matic` - Polygon Mainnet
+- `polygon-amoy` - Polygon Amoy Testnet
+- `zksync-era` - zkSync Mainnet
+- `scroll` - Scroll Mainnet
+- `scroll-sepolia` - Scroll Sepolia Testnet
+- `linea` - Linea Mainnet
+- `linea-sepolia` - Linea Sepolia Testnet
+- `mode-mainnet` - Mode Mainnet
+- `blast-mainnet` - Blast Mainnet
+- `blast-testnet` - Blast Sepolia Testnet
+- `zora` - Zora Network
+- `boba` - Boba Network
 
-#### Sepolia
-- **Network ID**: `sepolia`
-- **Chain ID**: 11155111
-- **Endpoint**: `sepolia.eth.streamingfast.io:443`
-- **Block Explorer**: https://sepolia.etherscan.io
+### BSC Networks
+- `bsc` - BNB Smart Chain Mainnet
+- `chapel` - BNB Smart Chain Chapel Testnet
+- `bnb-op` - opBNB Mainnet
 
-#### Holesky
-- **Network ID**: `holesky`
-- **Chain ID**: 17000
-- **Endpoint**: `holesky.eth.streamingfast.io:443`
-- **Block Explorer**: https://holesky.etherscan.io
-
-## Layer 2 Networks
-
-### Polygon
-- **Network ID**: `polygon`
-- **Chain ID**: 137
-- **Endpoint**: `polygon.streamingfast.io:443`
-- **Block Explorer**: https://polygonscan.com
-
-### Arbitrum One
-- **Network ID**: `arbitrum`
-- **Chain ID**: 42161
-- **Endpoint**: `arbitrum.streamingfast.io:443`
-- **Block Explorer**: https://arbiscan.io
-
-### Optimism
-- **Network ID**: `optimism`
-- **Chain ID**: 10
-- **Endpoint**: `optimism.streamingfast.io:443`
-- **Block Explorer**: https://optimistic.etherscan.io
-
-### Base
-- **Network ID**: `base`
-- **Chain ID**: 8453
-- **Endpoint**: `base.streamingfast.io:443`
-- **Block Explorer**: https://basescan.org
-
-## Other EVM Networks
-
-### Binance Smart Chain
-- **Network ID**: `bsc`
-- **Chain ID**: 56
-- **Endpoint**: `bsc.streamingfast.io:443`
-- **Block Explorer**: https://bscscan.com
-
-### Avalanche C-Chain
-- **Network ID**: `avalanche`
-- **Chain ID**: 43114
-- **Endpoint**: `avalanche.streamingfast.io:443`
-- **Block Explorer**: https://snowtrace.io
-
-### Fantom Opera
-- **Network ID**: `fantom`
-- **Chain ID**: 250
-- **Endpoint**: `fantom.streamingfast.io:443`
-- **Block Explorer**: https://ftmscan.com
+### Other EVM Networks
+- `avalanche` - Avalanche C-Chain
+- `fantom` - Fantom Opera Mainnet
+- `fuse` - Fuse Mainnet
+- `moonbeam` - Moonbeam Mainnet
+- `moonriver` - Moonriver Mainnet
+- `unichain` - Unichain Mainnet
+- `unichain-testnet` - Unichain Sepolia Testnet
+- `sei-mainnet` - Sei Network
+- `monad` - Monad Mainnet
+- `injective-evm` - Injective EVM Mainnet
+- `injective-evm-testnet` - Injective EVM Testnet
+- `soneium` - Soneium Mainnet
+- `soneium-testnet` - Soneium Minato Testnet
+- `ronin` - Ronin Mainnet
+- `etherlink-mainnet` - Etherlink Mainnet
+- `worldchain` - World Chain Mainnet
+- `ink` - Ink Mainnet
+- `xai` - Xai Mainnet
+- `tron-evm` - TRON EVM Mainnet
+- `katana` - Katana Mainnet
+- `berachain` - Berachain Mainnet
+- `chiliz` - Chiliz Mainnet
+- `chiliz-testnet` - Chiliz Spicy Testnet
 
 ## Non-EVM Networks
 
-### Solana
-- **Network ID**: `solana`
-- **Endpoint**: `solana.streamingfast.io:443`
-- **Block Explorer**: https://explorer.solana.com
+### Antelope/EOSIO Networks
+- `wax` - WAX Mainnet
+- `wax-testnet` - WAX Testnet
+- `telos` - Telos Mainnet
+- `telos-testnet` - Telos Testnet
+- `kylin` - Vaulta Kylin Testnet
+- `jungle4` - Vaulta Jungle4 Testnet
+- `ultra` - Ultra Mainnet
+- `eos` - Vaulta Mainnet
 
-### NEAR Protocol
-- **Network ID**: `near`
-- **Endpoint**: `near.streamingfast.io:443`
-- **Block Explorer**: https://explorer.near.org
+### Consensus Layer Networks
+- `mainnet-cl` - Ethereum Consensus Layer
+- `gnosis-cl` - Gnosis Consensus Layer
+- `gnosis-chiado-cl` - Gnosis Chiado Consensus Layer
+- `sepolia-cl` - Ethereum Sepolia Consensus Layer
+- `hoodi-cl` - Ethereum Hoodi Consensus Layer
 
-### Cosmos Hub
-- **Network ID**: `cosmoshub`
-- **Endpoint**: `cosmoshub.streamingfast.io:443`
-- **Block Explorer**: https://www.mintscan.io/cosmos
+### Bitcoin Networks
+- `btc` - Bitcoin Mainnet
+- `litecoin` - Litecoin Mainnet
 
-### Injective
-- **Network ID**: `injective`
-- **Endpoint**: `injective.streamingfast.io:443`
-- **Block Explorer**: https://explorer.injective.network
+### Cosmos Networks
+- `injective-mainnet` - Injective Mainnet
+- `injective-testnet` - Injective Testnet
+- `mantra-mainnet` - Mantra Mainnet
+- `mantra-testnet` - Mantra Dukong Testnet
+
+### NEAR Networks
+- `near-mainnet` - Near Mainnet
+- `near-testnet` - Near Testnet
+
+### Solana Networks
+- `solana-mainnet-beta` - Solana Mainnet
+- `solana-accounts` - Solana Accounts
+- `solana-devnet` - Solana Devnet
+- `bnb-svm` - svmBNB Mainnet
+
+### Starknet Networks
+- `starknet-mainnet` - Starknet Mainnet
+- `starknet-testnet` - Starknet Sepolia Testnet
+
+### Other Networks
+- `arweave-mainnet` - Arweave
+- `stellar` - Stellar Mainnet
+- `stellar-testnet` - Stellar Testnet
+- `tron` - TRON Mainnet
 
 ## Usage in Manifest
 
@@ -179,10 +198,9 @@ export SUBSTREAMS_API_TOKEN="your-api-token"
 
 ## Getting Access
 
-1. Sign up at [StreamingFast](https://streamingfast.io)
+1. Sign up at [thegraph.market](https://thegraph.market)
 2. Generate API token
 3. Configure authentication
 4. Start building!
 
 For enterprise needs or additional networks, contact [StreamingFast support](mailto:support@streamingfast.io).
-

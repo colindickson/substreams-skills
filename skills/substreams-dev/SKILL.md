@@ -292,10 +292,10 @@ let trx_copy = transaction.clone(); // Avoid this!
    for log in trx.receipt.logs.clone() { } // Bad
    ```
 
-2. **Borrow, don't own**: Pass references to functions
+2. **Use references when appropriate**: Pass references to avoid unnecessary cloning
    ```rust
-   fn process_log(log: &Log) { } // Good
-   fn process_log(log: Log) { } // Bad (takes ownership)
+   fn process_log(log: &Log) { } // Good for read-only access
+   fn process_log(log: Log) { } // Good when consuming/transforming data
    ```
 
 3. **Extract minimal data**: Only copy what you actually need
@@ -368,7 +368,7 @@ time substreams run -s 17000000 -t +1000 map_events
 
 ### Remember
 
-* 🎯 **Profile before optimizing**: Use `substreams estimate` to identify bottlenecks
+* 🎯 **Measure performance impact**: Use timing with `substreams run` to identify bottlenecks
 * 🎯 **Clone only when necessary**: Most of the time, borrowing is sufficient
 * 🎯 **Block cloning is almost never needed**: This is the #1 performance killer
 * 🎯 **Transaction cloning should be rare**: Extract only the data you need
@@ -424,4 +424,3 @@ See [references/patterns.md](./references/patterns.md) for detailed examples:
 * [Discord Community](https://discord.gg/streamingfast)
 * [GitHub Issues](https://github.com/streamingfast/substreams/issues)
 * [Documentation](https://substreams.streamingfast.io)
-

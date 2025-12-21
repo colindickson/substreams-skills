@@ -4,16 +4,23 @@ Collection of proven patterns and best practices for Substreams development.
 
 ## Event Extraction Patterns
 
-### Basic ERC-20 Transfer Extraction
+### Recommended: Using ABI Generator
 
+The best practice for event extraction is to use the ABI Generator with `substreams init`:
+
+```bash
+# Bootstrap a new project with ABI generation
+substreams init
+
+# This will generate typed Rust bindings from contract ABIs
+# See https://github.com/streamingfast/substreams-ethereum for details
+```
+
+Generated code example:
 ```rust
 use substreams::prelude::*;
 use substreams_ethereum::pb::eth::v2::Block;
-
-const TRANSFER_EVENT_SIGNATURE: [u8; 32] = [
-    0xdd, 0xf2, 0x52, 0xad, 0x1b, 0xe2, 0xc8, 0x9b, 0x69, 0xc2, 0xb0, 0x68, 0xfc, 0x37, 0x8d, 0xaa,
-    0x95, 0x2b, 0xa7, 0xf1, 0x63, 0xc4, 0xa1, 0x16, 0x28, 0xf5, 0x5a, 0x4d, 0xf5, 0x23, 0xb3, 0xef,
-];
+use crate::abi::erc20::events::Transfer; // Generated from ABI
 
 #[substreams::handlers::map]
 pub fn map_transfers(block: Block) -> Result<Transfers, Error> {
@@ -21,30 +28,23 @@ pub fn map_transfers(block: Block) -> Result<Transfers, Error> {
     
     for trx in block.transactions() {
         for log in &trx.receipt.logs {
-            if is_transfer_event(log) {
-                transfers.items.push(extract_transfer(log, &trx, &block));
+            // Use generated ABI decoder
+            if let Some(transfer) = Transfer::match_and_decode(log) {
+                transfers.items.push(Transfer {
+                    tx_hash: Hex::encode(&trx.hash),
+                    from: transfer.from,
+                    to: transfer.to,
+                    amount: transfer.value.to_string(),
+                    token: Hex::encode(&log.address),
+                    block_num: block.number,
+                    block_time: block.timestamp_seconds(),
+                    log_index: log.index,
+                });
             }
         }
     }
     
     Ok(transfers)
-}
-
-fn is_transfer_event(log: &Log) -> bool {
-    log.topics.len() >= 3 && log.topics[0] == TRANSFER_EVENT_SIGNATURE
-}
-
-fn extract_transfer(log: &Log, trx: &TransactionTrace, block: &Block) -> Transfer {
-    Transfer {
-        tx_hash: Hex::encode(&trx.hash),
-        from: extract_address(&log.topics[1]),
-        to: extract_address(&log.topics[2]),
-        amount: extract_uint256(&log.data),
-        token: Hex::encode(&log.address),
-        block_num: block.number,
-        block_time: block.timestamp_seconds(),
-        log_index: log.index,
-    }
 }
 ```
 
@@ -98,90 +98,97 @@ fn classify_event(log: &Log) -> EventType {
 
 ## Store Aggregation Patterns
 
-### Time-Based Aggregation
+### Factory Contract Pattern
+
+The primary use case for stores in Substreams is tracking factory contracts and their created instances:
 
 ```rust
 #[substreams::handlers::store]
-pub fn store_daily_volume(
-    transfers: Transfers, 
-    store: StoreAddBigDecimal
+pub fn store_factory_contracts(
+    events: FactoryEvents,
+    store: StoreSetString,
 ) {
-    for transfer in transfers.items {
-        let day = get_day_key(transfer.block_time);
-        let key = format!("daily:{}:{}", day, transfer.token);
-        
-        let amount = BigDecimal::from_str(&transfer.amount)
-            .unwrap_or_else(|_| BigDecimal::zero());
-        
-        store.add(0, &key, &amount);
-    }
-}
-
-fn get_day_key(timestamp: u64) -> String {
-    let dt = DateTime::from_timestamp(timestamp as i64, 0).unwrap();
-    dt.format("%Y-%m-%d").to_string()
-}
-```
-
-### Hierarchical Aggregation
-
-```rust
-#[substreams::handlers::store]
-pub fn store_hierarchical_stats(
-    events: DexEvents,
-    store: StoreAddInt64
-) {
-    for swap in events.swaps {
-        // Global stats
-        store.add(0, "global:swap_count", 1);
-        store.add(0, "global:volume", swap.amount_usd as i64);
-        
-        // Protocol stats
-        let protocol_key = format!("protocol:{}:swap_count", swap.protocol);
-        store.add(0, &protocol_key, 1);
-        
-        // Pair stats
-        let pair_key = format!("pair:{}:{}:swap_count", swap.token0, swap.token1);
-        store.add(0, &pair_key, 1);
-        
-        // Hourly stats
-        let hour = get_hour_key(swap.block_time);
-        let hourly_key = format!("hourly:{}:swap_count", hour);
-        store.add(0, &hourly_key, 1);
-    }
-}
-```
-
-### Running Averages
-
-```rust
-#[substreams::handlers::store]
-pub fn store_moving_average(
-    prices: Prices,
-    price_store: StoreSetBigDecimal,
-    count_store: StoreAddInt64,
-    sum_store: StoreAddBigDecimal,
-) {
-    for price in prices.items {
-        let token = &price.token;
-        
-        // Update count and sum
-        count_store.add(0, &format!("count:{}", token), 1);
-        sum_store.add(0, &format!("sum:{}", token), &price.value);
-        
-        // Calculate and store average
-        let count = count_store.get_last(&format!("count:{}", token))
-            .unwrap_or(0);
-        let sum = sum_store.get_last(&format!("sum:{}", token))
-            .unwrap_or_else(|| BigDecimal::zero());
-        
-        if count > 0 {
-            let average = sum / BigDecimal::from(count);
-            price_store.set(0, &format!("avg:{}", token), &average);
+    for event in events.items {
+        match event.event_type.as_str() {
+            "PairCreated" => {
+                let pair_address = event.pair_address;
+                let key = format!("pair:{}", pair_address);
+                
+                let pair_info = PairInfo {
+                    token0: event.token0,
+                    token1: event.token1,
+                    factory: event.factory_address,
+                    created_at: event.block_num,
+                };
+                
+                let serialized = serde_json::to_string(&pair_info).unwrap();
+                store.set(0, &key, &serialized);
+            }
+            "PoolCreated" => {
+                let pool_address = event.pool_address;
+                let key = format!("pool:{}", pool_address);
+                
+                let pool_info = PoolInfo {
+                    token0: event.token0,
+                    token1: event.token1,
+                    fee: event.fee,
+                    factory: event.factory_address,
+                    created_at: event.block_num,
+                };
+                
+                let serialized = serde_json::to_string(&pool_info).unwrap();
+                store.set(0, &key, &serialized);
+            }
+            _ => {}
         }
     }
 }
 ```
+
+### Registry Pattern
+
+Track contract registrations and metadata:
+
+```rust
+#[substreams::handlers::store]
+pub fn store_contract_registry(
+    events: RegistryEvents,
+    store: StoreSetString,
+) {
+    for event in events.items {
+        match event.event_type.as_str() {
+            "ContractRegistered" => {
+                let key = format!("contract:{}", event.contract_address);
+                
+                let contract_info = ContractInfo {
+                    name: event.name,
+                    version: event.version,
+                    owner: event.owner,
+                    registered_at: event.block_num,
+                };
+                
+                let serialized = serde_json::to_string(&contract_info).unwrap();
+                store.set(0, &key, &serialized);
+            }
+            _ => {}
+        }
+    }
+}
+```
+
+### Best Practices for Store Usage
+
+**Recommended for Substreams:**
+- Factory contract tracking
+- Contract registry management
+- Dynamic contract discovery
+- Metadata storage for enrichment
+
+**Recommended to handle outside Substreams:**
+- Complex aggregations (use external databases)
+- Time-series data (use specialized time-series databases)
+- Analytics and reporting (use data warehouses)
+- Real-time dashboards (use streaming analytics platforms)
 
 ## Multi-Module Composition
 
@@ -407,37 +414,39 @@ pub fn store_factory_contracts(
 
 ## Error Handling Patterns
 
-### Graceful Degradation
+### Fail-Fast Approach
+
+The recommended approach is to fail fast when data doesn't align with expectations:
 
 ```rust
 #[substreams::handlers::map]
-pub fn map_robust_events(block: Block) -> Result<Events, Error> {
+pub fn map_strict_events(block: Block) -> Result<Events, Error> {
     let mut events = Events::default();
-    let mut error_count = 0;
     
     for trx in block.transactions() {
-        match process_transaction_safe(trx) {
-            Ok(mut trx_events) => {
-                events.items.append(&mut trx_events);
-            }
-            Err(e) => {
-                error_count += 1;
-                substreams::log::warn!(
-                    "Failed to process transaction {}: {}", 
-                    Hex::encode(&trx.hash), 
-                    e
-                );
-                
-                // Continue processing other transactions
-                if error_count > 10 {
-                    return Err(anyhow::anyhow!("Too many errors in block"));
-                }
-            }
-        }
+        // Fail fast on any data inconsistency
+        let trx_events = process_transaction_strict(trx)?;
+        events.items.extend(trx_events);
     }
     
-    if error_count > 0 {
-        substreams::log::info!("Block processed with {} errors", error_count);
+    Ok(events)
+}
+
+fn process_transaction_strict(trx: &TransactionTrace) -> Result<Vec<Event>, Error> {
+    let mut events = Vec::new();
+    
+    for log in &trx.receipt.logs {
+        // Validate data integrity before processing
+        if log.topics.is_empty() {
+            return Err(anyhow::anyhow!("Log missing topics at tx {}", Hex::encode(&trx.hash)));
+        }
+        
+        if log.data.len() % 32 != 0 {
+            return Err(anyhow::anyhow!("Invalid log data length at tx {}", Hex::encode(&trx.hash)));
+        }
+        
+        // Process with strict validation
+        events.push(extract_event_strict(log, trx)?);
     }
     
     Ok(events)
@@ -567,4 +576,3 @@ mod tests {
     }
 }
 ```
-
