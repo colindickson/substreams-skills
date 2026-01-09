@@ -8,10 +8,29 @@ Agent Skills are folders containing instructions and resources that AI assistant
 
 ## Available Skills
 
-Skills will be added incrementally. Check back soon for:
-- **Substreams Development** - Building Substreams projects, manifests, modules
-- **Substreams SQL** - SQL database sinks (PostgreSQL, ClickHouse)
-- **Substreams Testing** - Testing strategies and best practices
+### ✅ Substreams Development (`substreams-dev`)
+Expert knowledge for developing, building, and debugging Substreams projects on any blockchain. Comprehensive guidance on:
+- Creating and configuring `substreams.yaml` manifests
+- Writing efficient Rust modules (map, store, index types)
+- Protobuf schema design and code generation
+- Performance optimization and avoiding excessive cloning
+- Debugging and troubleshooting common issues
+
+### ✅ Substreams SQL (`substreams-sql`)
+Expert knowledge for building SQL database sinks from Substreams data. Covers both approaches:
+- **Database Changes (CDC)** - Stream individual row changes for real-time consistency
+- **Relational Mappings** - Transform data into normalized tables with proper relationships
+- **PostgreSQL** - Advanced patterns, indexing strategies, and performance optimization
+- **ClickHouse** - Analytics-optimized schemas, materialized views, and time-series patterns
+- **Schema Design** - Best practices for blockchain data modeling
+
+### ✅ Substreams Testing (`substreams-testing`)
+Expert knowledge for testing Substreams applications at all levels. Complete testing strategy:
+- **Unit Testing** - Testing individual functions with real blockchain data
+- **Integration Testing** - End-to-end workflows with real block processing
+- **Performance Testing** - Benchmarking, memory profiling, and production mode validation
+- **FireCore Tools** - Using Firehose, StreamingFast API, and testing utilities
+- **CI/CD Integration** - Automated testing pipelines and regression detection
 
 ## Installation
 
