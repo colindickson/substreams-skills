@@ -16,22 +16,28 @@ When installed, Claude gains deep expertise in:
 
 ### Claude Code (Recommended)
 
-**Option 1: Install from GitHub**
+**Step 1: Add the marketplace**
 
 ```bash
-claude /plugin install streamingfast/substreams-skills
+/plugin marketplace add streamingfast/substreams-skills
 ```
 
-**Option 2: Local Development**
+**Step 2: Install the plugin**
 
-Clone the repository and load it directly:
+```bash
+/plugin install substreams@streamingfast-substreams
+```
+
+After installation, Claude will automatically use the Substreams expertise when working on relevant projects.
+
+**Alternative: Local Development**
+
+Clone and load directly without installing:
 
 ```bash
 git clone https://github.com/streamingfast/substreams-skills.git
 claude --plugin-dir ./substreams-skills
 ```
-
-After installation, the skill is available as `/substreams:substreams-dev` and Claude will automatically use the Substreams expertise when working on relevant projects.
 
 ### Cursor
 
