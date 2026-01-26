@@ -7,10 +7,7 @@
     "url": "https://streamingfast.io"
   },
   "homepage": "https://docs.substreams.dev",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/streamingfast/substreams-skills"
-  },
+  "repository": "https://github.com/streamingfast/substreams-skills",
   "license": "Apache-2.0",
   "keywords": [
     "substreams",
