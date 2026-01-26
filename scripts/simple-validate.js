@@ -95,6 +95,19 @@ function validatePluginJson(rootDir) {
         throw new Error(`plugin.json: Invalid version format. Expected semver (e.g., 1.0.0)`);
     }
 
+    // Validate optional fields types
+    if (plugin.repository !== undefined && typeof plugin.repository !== 'string') {
+        throw new Error(`plugin.json: 'repository' must be a string URL, not an object`);
+    }
+
+    if (plugin.homepage !== undefined && typeof plugin.homepage !== 'string') {
+        throw new Error(`plugin.json: 'homepage' must be a string URL`);
+    }
+
+    if (plugin.license !== undefined && typeof plugin.license !== 'string') {
+        throw new Error(`plugin.json: 'license' must be a string (SPDX identifier)`);
+    }
+
     return plugin;
 }
 

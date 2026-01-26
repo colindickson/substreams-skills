@@ -42,17 +42,12 @@ Expert knowledge for testing Substreams applications at all levels. Complete tes
 
 ### Claude Code (Recommended)
 
-**Step 1: Add the marketplace**
-
-```bash
-/plugin marketplace add streamingfast/substreams-skills
-```
-
-**Step 2: Install the plugin**
-
-```bash
-/plugin install substreams@streamingfast-substreams
-```
+1. Run `/plugin` to open the plugin manager
+1. Go to the **Marketplaces** tab
+1. Select **Add marketplace** and enter: `streamingfast/substreams-skills`
+1. Go to the **Discover** tab
+1. Find and install the `substreams-dev` plugin
+1. Restart Claude instance(s) (otherwise `skills` are not properly re-discovered).
 
 After installation, Claude will automatically use the Substreams expertise when working on relevant projects.
 
