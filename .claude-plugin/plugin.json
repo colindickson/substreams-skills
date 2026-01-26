@@ -1,0 +1,23 @@
+{
+  "name": "substreams",
+  "description": "Agent Skills for Substreams development - high-performance blockchain data indexing and transformation",
+  "version": "1.0.0",
+  "author": {
+    "name": "StreamingFast",
+    "url": "https://streamingfast.io"
+  },
+  "homepage": "https://docs.substreams.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/streamingfast/substreams-skills"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "substreams",
+    "blockchain",
+    "indexing",
+    "streaming",
+    "rust",
+    "protobuf"
+  ]
+}

@@ -2,41 +2,47 @@
 
 Agent Skills for Substreams development - open-source expertise packages for AI assistants.
 
-## What are Agent Skills?
+## What is this?
 
-Agent Skills are folders containing instructions and resources that AI assistants can load dynamically to gain expertise in specific domains. These skills follow the open [Agent Skills specification](https://agentskills.io/specification).
+This is a **Claude Code Plugin** that provides AI assistants with expert knowledge about Substreams - a high-performance blockchain data indexing and transformation technology.
 
-## Available Skills
-
-Skills will be added incrementally. Check back soon for:
-- **Substreams Development** - Building Substreams projects, manifests, modules
-- **Substreams SQL** - SQL database sinks (PostgreSQL, ClickHouse)
-- **Substreams Testing** - Testing strategies and best practices
+When installed, Claude gains deep expertise in:
+- Building Substreams projects with `substreams.yaml` manifests
+- Writing Rust modules (map, store, index types)
+- Creating protobuf schemas for blockchain data
+- Performance optimization and debugging
 
 ## Installation
 
-### Claude Code
+### Claude Code (Recommended)
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/streamingfast/substreams-skills.git
-   cd substreams-skills
-   ```
+**Option 1: Install from GitHub**
 
-2. In Claude Code settings, add skill paths:
-   ```
-   ~/substreams-skills/skills/substreams-dev
-   ~/substreams-skills/skills/substreams-sql
-   ~/substreams-skills/skills/substreams-testing
-   ```
+```bash
+claude /plugin install streamingfast/substreams-skills
+```
+
+**Option 2: Local Development**
+
+Clone the repository and load it directly:
+
+```bash
+git clone https://github.com/streamingfast/substreams-skills.git
+claude --plugin-dir ./substreams-skills
+```
+
+After installation, the skill is available as `/substreams:substreams-dev` and Claude will automatically use the Substreams expertise when working on relevant projects.
 
 ### Cursor
 
-Similar to Claude Code - add skill directory paths in Cursor settings.
+Add the skill directory path in Cursor settings:
+```
+~/substreams-skills/skills/substreams-dev
+```
 
 ### VS Code
 
-VS Code 1.107+ supports Claude Skills (experimental feature). Configure in your VS Code settings:
+VS Code 1.107+ supports Claude Skills (experimental feature):
 
 1. Enable the experimental feature in settings
 2. Add skill paths to your configuration
@@ -44,20 +50,42 @@ VS Code 1.107+ supports Claude Skills (experimental feature). Configure in your 
 
 See [VS Code 1.107 release notes](https://code.visualstudio.com/updates/v1_107#_reuse-your-claude-skills-experimental) for details.
 
+## Available Skills
+
+| Skill | Description |
+|-------|-------------|
+| `substreams-dev` | Expert knowledge for developing, building, and debugging Substreams projects |
+
+Future skills (coming soon):
+- **substreams-sql** - SQL database sinks (PostgreSQL, ClickHouse)
+- **substreams-testing** - Testing strategies and best practices
+
+## Plugin Structure
+
+```
+substreams-skills/
+├── .claude-plugin/
+│   └── plugin.json          # Plugin metadata
+└── skills/
+    └── substreams-dev/
+        ├── SKILL.md          # Main skill content
+        └── references/       # Additional reference materials
+            ├── manifest-spec.md
+            ├── module-types.md
+            ├── networks.md
+            └── patterns.md
+```
+
 ## Contributing
 
 See [SKILL_DEVELOPMENT.md](./SKILL_DEVELOPMENT.md) for guidelines on creating new skills.
 
 ## Validation
 
-All skills are validated against the Agent Skills specification:
+Validate all skills against the specification:
 
 ```bash
-# Install skills-ref CLI (if not already installed)
-npm install -g @anthropic/skills-ref
-
-# Validate all skills
-./scripts/validate-all.sh
+npm run validate
 ```
 
 ## License
@@ -67,6 +95,5 @@ Apache 2.0 - See [LICENSE](./LICENSE)
 ## Resources
 
 * [Substreams Documentation](https://substreams.streamingfast.io)
-* [Agent Skills Specification](https://agentskills.io/specification)
+* [Claude Code Plugins](https://code.claude.com/docs/en/plugins)
 * [StreamingFast Discord](https://discord.gg/streamingfast)
-
