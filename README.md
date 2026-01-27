@@ -77,16 +77,6 @@ VS Code 1.107+ supports Claude Skills (experimental feature):
 
 See [VS Code 1.107 release notes](https://code.visualstudio.com/updates/v1_107#_reuse-your-claude-skills-experimental) for details.
 
-## Available Skills
-
-| Skill | Description |
-|-------|-------------|
-| `substreams-dev` | Expert knowledge for developing, building, and debugging Substreams projects |
-
-Future skills (coming soon):
-- **substreams-sql** - SQL database sinks (PostgreSQL, ClickHouse)
-- **substreams-testing** - Testing strategies and best practices
-
 ## Plugin Structure
 
 ```
@@ -94,13 +84,23 @@ substreams-skills/
 ├── .claude-plugin/
 │   └── plugin.json          # Plugin metadata
 └── skills/
-    └── substreams-dev/
-        ├── SKILL.md          # Main skill content
-        └── references/       # Additional reference materials
-            ├── manifest-spec.md
-            ├── module-types.md
-            ├── networks.md
-            └── patterns.md
+    ├── substreams-dev/
+    │   ├── SKILL.md          # Main skill content
+    │   └── references/       # Additional reference materials
+    │       ├── manifest-spec.md
+    │       ├── module-types.md
+    │       ├── networks.md
+    │       └── patterns.md
+    ├── substreams-sql/
+    │   ├── SKILL.md
+    │   └── references/
+    │       ├── clickhouse-patterns.md
+    │       └── database-changes.md
+    └── substreams-testing/
+        ├── SKILL.md
+        └── references/
+            ├── firecore-tools.md
+            └── integration-testing.md
 ```
 
 ## Contributing
