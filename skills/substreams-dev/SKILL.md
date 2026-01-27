@@ -44,6 +44,22 @@ my-substreams/
 └── build/                   # Generated files (gitignored)
 ```
 
+## Prerequisites
+
+### Required CLI Tools
+
+- **substreams**: Core CLI for building, running, and deploying
+- **buf**: Required by `substreams build` for protobuf code generation
+
+### Authentication
+
+Running `substreams run` against hosted endpoints requires authentication:
+
+```bash
+substreams auth  # Interactive authentication
+# Or set SUBSTREAMS_API_TOKEN environment variable
+```
+
 ## Common Workflows
 
 ### Creating a New Project
@@ -383,6 +399,7 @@ See [references/patterns.md](./references/patterns.md) for detailed examples:
 * Multi-module composition
 * Parameterized modules
 * Dynamic data sources
+* **Database sink patterns** (delta updates, composite keys, sink SQL workflow)
 
 ## Querying Chain Head Block
 
@@ -390,7 +407,11 @@ To get the current head block of a chain (useful for determining the latest bloc
 
 **Using Substreams:**
 ```bash
-substreams run common@v0.1.0 -e=<network-id-alias-or-host> -s -1 -o jsonl
+# Quick head block lookup for a network
+substreams run common@latest -s -1 --network mainnet
+
+# Or with explicit endpoint
+substreams run common@latest -e=<network-id-alias-or-host> -s -1 -o jsonl
 ```
 Read the first line of output to get the head block information. The `-s -1` flag starts from the latest block.
 
@@ -417,7 +438,9 @@ Read the first line of output to get the head block information.
 **Build fails**:
 
 * Check Rust toolchain: `rustup target add wasm32-unknown-unknown`
+* Ensure `buf` CLI is installed (required for proto generation)
 * Verify proto imports are correct
+* Add `protobuf.excludePaths` with `sf/substreams` and `google` when importing spkgs
 * Ensure binary path in manifest matches build output
 
 **Empty output**:

@@ -538,6 +538,48 @@ pub fn store_batch_updates(
 }
 ```
 
+## Database Sink Patterns
+
+### Pushing Aggregations Into the Sink
+
+A common challenge in blockchain data processing is computing chain-wide aggregations — counters, running totals, min/max tracking, OHLC candles, etc. While Substreams **store modules** can accumulate state, they introduce complexity: stores must be fully replayed from their initial block, they increase module dependencies, and they require careful handling of parallel execution.
+
+A powerful alternative is to **push aggregation logic directly into the database sink**. Instead of computing aggregates in Substreams stores, you emit delta operations (add, max, min, set_if_null, etc.) that the sink applies atomically at the database level. This approach:
+
+- **Eliminates store modules** for many aggregation use cases, simplifying your module graph
+- **Avoids read-modify-write cycles** — deltas are applied atomically by the database
+- **Enables parallel processing** — independent delta operations don't conflict
+- **Simplifies reorg handling** — the sink manages undo operations automatically
+
+The `substreams-sink-sql` sink has first-class support for delta operations, making it an excellent candidate for chain-wide aggregations. See the SQL skill documentation for detailed patterns, API reference, and examples.
+
+### DatabaseChanges Output Module
+
+Modules that output to a database sink use the `DatabaseChanges` protobuf type and the `Tables` API from the `substreams-database-change` crate:
+
+```rust
+use substreams_database_change::tables::Tables;
+use substreams_database_change::pb::sf::substreams::sink::database::v1::DatabaseChanges;
+
+#[substreams::handlers::map]
+fn db_out(events: Events) -> Result<DatabaseChanges, substreams::errors::Error> {
+    let mut tables = Tables::new();
+
+    for event in &events.items {
+        tables.create_row("my_table", &event.id)
+            .set("column1", &event.value1)
+            .set("column2", &event.value2);
+    }
+
+    Ok(tables.to_database_changes())
+}
+```
+
+**Important Notes:**
+- The correct import path is `substreams_database_change::pb::sf::substreams::sink::database::v1::DatabaseChanges` (not the deprecated `pb::database::DatabaseChanges`)
+- Ordinals are automatically managed by the `Tables` struct — no manual management needed
+- Cargo dependency: `substreams-database-change = "4"`
+
 ## Testing Patterns
 
 ### Mock Data Generation

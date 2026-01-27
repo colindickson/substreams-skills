@@ -404,31 +404,20 @@ ENGINE = Distributed('clickhouse_cluster', 'default', 'erc20_transfers_replicate
 ### Optimized Ingestion Patterns
 
 ```yaml
-# Substreams configuration for ClickHouse
-sinks:
-  - name: clickhouse_sink
-    type: sf.substreams.sink.sql.v1.Service
-    config:
-      schema: "./clickhouse-schema.sql"
-      engine: clickhouse
-      clickhouseDsn: "clickhouse://default:@clickhouse-cluster:9000/blockchain"
-      
-      # ClickHouse-specific optimizations
-      batchSize: 50000        # Large batches for ClickHouse
-      flushInterval: "10s"    # Less frequent flushes
-      maxBatchDelay: "30s"    # Allow batching accumulation
-      compression: "lz4"      # Fast compression
-      
-      # Parallel insertion
-      maxConcurrency: 8
-      
-      # Connection settings
-      maxIdleConns: 20
-      maxOpenConns: 100
-      connMaxLifetime: "1h"
-      
-    inputs:
-      - map: db_out_clickhouse
+# Manifest sink configuration for ClickHouse
+# Note: DSN is passed on the CLI, not in the manifest
+sink:
+  module: db_out
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: ./clickhouse-schema.sql
+    engine: clickhouse
+```
+
+```bash
+# Run the sink with ClickHouse DSN
+substreams-sink-sql setup "clickhouse://default:@clickhouse-cluster:9000/blockchain" my-substreams.spkg
+substreams-sink-sql run "clickhouse://default:@clickhouse-cluster:9000/blockchain" my-substreams.spkg
 ```
 
 ### Bulk Data Operations

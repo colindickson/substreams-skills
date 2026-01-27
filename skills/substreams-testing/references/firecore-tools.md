@@ -13,22 +13,24 @@ FireCore provides the foundational infrastructure for Substreams:
 
 ## Firehose Integration
 
-### Setting Up Firehose for Testing
+### Setting Up FireCore for Testing
+
+The `firecore` CLI is the main tool for interacting with Firehose. Install it from the [firehose-core releases](https://github.com/streamingfast/firehose-core/releases).
 
 ```bash
-# Install Firehose CLI
-curl -sSL https://github.com/streamingfast/firehose/releases/download/v1.0.0/firehose_1.0.0_linux_x86_64.tar.gz | tar -xz
-sudo mv firehose /usr/local/bin/
+# Configure authentication (required for hosted endpoints)
+substreams auth
 
-# Configure authentication
-export FIREHOSE_API_KEY="your_api_key_here"
+# Verify firecore is available
+firecore --version
 
-# Test connection
-firehose --version
-firehose ping ethereum
+# Test connection by fetching the latest block
+firecore tools firehose-client mainnet -o text -- -1
 ```
 
 ### Fetching Test Data
+
+Use `firecore tools firehose-client` to fetch blocks for test fixtures:
 
 ```bash
 #!/bin/bash
@@ -36,44 +38,22 @@ firehose ping ethereum
 
 set -e
 
-NETWORK="ethereum"
+NETWORK="mainnet"  # Network ID or endpoint
 START_BLOCK=17000000
-END_BLOCK=17001000
+BLOCK_COUNT=100
 OUTPUT_DIR="test_data/firehose"
 
-echo "📥 Fetching test data from Firehose"
+echo "Fetching test data from Firehose"
 
-# Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Fetch blocks in chunks to avoid timeouts
-CHUNK_SIZE=100
-current_block=$START_BLOCK
+# Fetch blocks as JSON (one block per line)
+firecore tools firehose-client "$NETWORK" -o json -- $START_BLOCK +$BLOCK_COUNT \
+    > "$OUTPUT_DIR/blocks_${START_BLOCK}_$((START_BLOCK + BLOCK_COUNT)).jsonl"
 
-while [ $current_block -lt $END_BLOCK ]; do
-    chunk_end=$((current_block + CHUNK_SIZE - 1))
-    if [ $chunk_end -gt $END_BLOCK ]; then
-        chunk_end=$END_BLOCK
-    fi
-    
-    echo "Fetching blocks ${current_block} to ${chunk_end}"
-    
-    # Fetch block data
-    firehose fetch $NETWORK \
-        --start-block $current_block \
-        --stop-block $((chunk_end + 1)) \
-        --output-format jsonl \
-        --output-file "$OUTPUT_DIR/blocks_${current_block}_${chunk_end}.jsonl"
-    
-    current_block=$((chunk_end + 1))
-    
-    # Rate limiting
-    sleep 1
-done
-
-echo "✅ Test data fetching complete"
-echo "   Data stored in: $OUTPUT_DIR"
-echo "   Total blocks: $((END_BLOCK - START_BLOCK))"
+echo "Test data fetching complete"
+echo "  Data stored in: $OUTPUT_DIR"
+echo "  Total blocks: $BLOCK_COUNT"
 ```
 
 ### Using Firehose Data in Tests

@@ -119,10 +119,11 @@ mod tests {
 
 Test complete modules with real blockchain data.
 
+> **Note:** There is no official `substreams::test_utils` module. Integration tests use standard Rust test infrastructure with manually constructed test data or block fixtures.
+
 **Setup Integration Testing**:
 ```rust
 // tests/integration_tests.rs
-use substreams::test_utils::*;
 use your_substreams::*;
 
 #[test]
@@ -269,87 +270,67 @@ fn test_performance_requirements() {
 
 ### Firehose Data Access
 
-FireCore provides comprehensive blockchain data access for testing:
+FireCore CLI (`firecore`) provides blockchain data access for testing. Use it to fetch blocks for test fixtures:
 
 ```bash
-# Install FireCore tools
-curl -sSL https://github.com/streamingfast/firehose/releases/download/v1.0.0/firehose_1.0.0_linux_x86_64.tar.gz | tar -xz
-sudo mv firehose /usr/local/bin/
+# Fetch a single block as JSON (useful for creating test fixtures)
+firecore tools firehose-client mainnet -o json -- 17000000 +1
 
-# Download test data for specific blocks
-firehose fetch ethereum 17000000 17000100 --output-dir ./testdata/
+# Fetch a range of blocks
+firecore tools firehose-client mainnet -o json -- 17000000 +100
 
-# Convert to test fixtures
-firehose convert ethereum ./testdata/blocks/ --format json --output ./fixtures/
+# Get the current head block
+firecore tools firehose-client mainnet -o text -- -1
 ```
 
-**Using Firehose in Tests**:
+> **Note:** There is no `firehose` Rust crate for loading blocks. Use `substreams_ethereum::pb::eth::v2::Block` with `prost::Message::decode()` for protobuf fixtures, or construct test blocks manually.
+
+**Using Block Fixtures in Tests**:
 ```rust
-use firehose::ethereum::Block;
+use substreams_ethereum::pb::eth::v2::Block;
+use prost::Message;
 use std::fs;
 
-fn load_firehose_block(block_number: u64) -> Block {
-    let path = format!("fixtures/block_{}.json", block_number);
-    let data = fs::read_to_string(path)
-        .expect("Failed to read test block");
-    
-    serde_json::from_str(&data)
-        .expect("Failed to parse block JSON")
+fn load_test_block(block_number: u64) -> Block {
+    // Load protobuf-encoded block fixture
+    let data = fs::read(format!("fixtures/block_{}.bin", block_number))
+        .expect("Test block fixture not found");
+
+    Block::decode(data.as_slice())
+        .expect("Failed to decode block")
 }
 
 #[test]
-fn test_with_firehose_data() {
-    // Load real Ethereum block
-    let block = load_firehose_block(17000000);
-    
-    // Test your module with real data
+fn test_with_real_block_data() {
+    let block = load_test_block(17000000);
+
     let result = map_transfers(block).unwrap();
-    
+
     // Validate against known expected results
-    validate_block_17000000_transfers(&result);
-}
-
-fn validate_block_17000000_transfers(result: &TransferEvents) {
-    // Block 17000000 should have specific known transfers
-    assert_eq!(result.transfers.len(), 1234); // Known count
-    
-    // Check for specific large transfer that occurred
-    let large_transfer = result.transfers.iter()
-        .find(|t| t.amount > BigInt::from_str("1000000000000000000000").unwrap());
-    
-    assert!(large_transfer.is_some(), "Expected large transfer not found");
-}
-```
-
-### StreamingFast TestKit
-
-```rust
-// Use StreamingFast TestKit for advanced testing
-use streamingfast_testkit::*;
-
-#[test]
-fn test_with_testkit() {
-    let testkit = TestKit::new()
-        .with_network("ethereum")
-        .with_block_range(17000000..17000100)
-        .with_fixtures("./fixtures");
-    
-    let result = testkit
-        .run_module("map_transfers")
-        .expect("Module execution failed");
-    
-    // TestKit provides rich assertions
-    result.assert_block_count(100);
-    result.assert_no_errors();
-    result.assert_output_valid();
-    
-    // Custom validations
-    for block_output in result.blocks() {
-        let transfers: TransferEvents = block_output.parse_output();
-        assert!(transfers.transfers.len() >= 0);
+    assert!(!result.transfers.is_empty());
+    for transfer in &result.transfers {
+        assert_eq!(transfer.from.len(), 42);
+        assert_eq!(transfer.to.len(), 42);
     }
 }
 ```
+
+### CLI-based Integration Testing
+
+For integration testing, use the `substreams` CLI to run modules against real data and validate the output:
+
+```bash
+# Run a module for a specific block range and capture output
+substreams run -s 17000000 -t +100 map_transfers --network mainnet -o jsonl > output.jsonl
+
+# Validate output is non-empty
+test -s output.jsonl || (echo "No output produced" && exit 1)
+
+# Check for specific expected content
+grep -q "transfers" output.jsonl || (echo "Missing transfers field" && exit 1)
+```
+
+For more structured integration tests, wrap `substreams run` in Rust using `std::process::Command` (see E2E Tests section above).
 
 ## Performance Testing
 
@@ -427,46 +408,26 @@ echo "Production mode timing:"
 grep "real" /tmp/prod_time.txt
 ```
 
-### Memory and Resource Testing
+### Resource Testing
 
 ```rust
 #[test]
-fn test_memory_usage() {
-    use memory_stats::memory_stats;
-    
-    let initial_memory = memory_stats().unwrap().physical_mem;
-    
-    // Process large block range
-    let blocks = load_test_blocks(17000000..17001000);
-    for block in blocks {
-        let _result = map_transfers(block).unwrap();
-        
-        // Check for memory leaks
-        let current_memory = memory_stats().unwrap().physical_mem;
-        let memory_growth = current_memory.saturating_sub(initial_memory);
-        
-        // Should not grow excessively (>100MB for this test)
-        assert!(memory_growth < 100 * 1024 * 1024, 
-               "Memory usage grew by {} bytes", memory_growth);
-    }
-}
-
-#[test]
 fn test_large_dataset_processing() {
-    // Test with massive block range to ensure scalability
+    // Test with a larger block range to ensure scalability
     let result = std::process::Command::new("substreams")
         .args(&[
             "run",
             "-s", "17000000",
             "-t", "+10000", // 10K blocks
             "map_transfers",
-            "--production-mode"
+            "--production-mode",
+            "--network", "mainnet",
         ])
         .output()
         .expect("Failed to run large dataset test");
-    
+
     assert!(result.status.success());
-    
+
     // Verify no out-of-memory errors
     let stderr = String::from_utf8_lossy(&result.stderr);
     assert!(!stderr.contains("out of memory"));
@@ -808,7 +769,8 @@ jobs:
     
     - name: Install Substreams CLI
       run: |
-        curl -sSL https://github.com/streamingfast/substreams/releases/download/v1.1.0/substreams_linux_x86_64.tar.gz | tar -xz
+        # Install latest substreams CLI
+        curl -sSL https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz | tar -xz
         sudo mv substreams /usr/local/bin/
         
     - name: Download test fixtures

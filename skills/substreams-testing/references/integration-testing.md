@@ -17,7 +17,7 @@ Integration tests should:
 
 ```rust
 // tests/integration_tests.rs
-use substreams::test_utils::*;
+// Note: There is no substreams::test_utils module. Use standard Rust test infrastructure.
 use your_substreams::*;
 use std::collections::HashMap;
 

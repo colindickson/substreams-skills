@@ -14,6 +14,10 @@ metadata:
 
 Expert assistant for building SQL database sinks from Substreams data - transforming blockchain data into relational databases.
 
+## Prerequisites
+
+- **substreams-sink-sql**: Required CLI tool for database sink workflows. Install from [releases](https://github.com/streamingfast/substreams-sink-sql/releases).
+
 ## Core Concepts
 
 ### What is Substreams SQL?
@@ -38,42 +42,12 @@ The CDC approach streams individual database operations (INSERT, UPDATE, DELETE)
 
 ### Key Components
 
-**Protobuf Schema** (`database_changes.proto`):
-```protobuf
-syntax = "proto3";
-
-package db_out;
-
-message DatabaseChanges {
-  repeated TableChange table_changes = 1;
-}
-
-message TableChange {
-  string table = 1;
-  string pk = 2;
-  uint64 ordinal = 3;
-  Operation operation = 4;
-  repeated Field fields = 5;
-
-  enum Operation {
-    UNSPECIFIED = 0;
-    CREATE = 1;
-    UPDATE = 2;
-    DELETE = 3;
-  }
-}
-
-message Field {
-  string name = 1;
-  string new_value = 2;
-  string old_value = 3;
-}
-```
+**Protobuf Schema**: The `DatabaseChanges` protobuf type is provided by the official `substreams-sink-database-changes` spkg — you do NOT need to define your own proto. Import it in your manifest (see Manifest Configuration below).
 
 **Rust Implementation**:
 ```rust
 use substreams::prelude::*;
-use substreams_database_change::pb::database::DatabaseChanges;
+use substreams_database_change::pb::sf::substreams::sink::database::v1::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 
 #[substreams::handlers::map]
@@ -104,27 +78,62 @@ pub fn db_out(events: Events) -> Result<DatabaseChanges, Error> {
 
 ### Manifest Configuration
 
+The manifest requires importing the database changes and sink-sql protodefs spkgs, and a `sink:` section:
+
 ```yaml
+specVersion: v0.1.0
+package:
+  name: my-substreams-sql
+  version: v0.1.0
+
+imports:
+    database: https://github.com/streamingfast/substreams-sink-database-changes/releases/download/v3.0.0/substreams-sink-database-changes-v3.0.0.spkg
+    sql: https://github.com/streamingfast/substreams-sink-sql/releases/download/protodefs-v1.0.7/substreams-sink-sql-protodefs-v1.0.7.spkg
+
+protobuf:
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/my_substreams_sql.wasm
+
+network: mainnet
+
 modules:
   - name: db_out
     kind: map
     inputs:
       - map: map_events
     output:
-      type: proto:db_out.DatabaseChanges
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
 
-sinks:
-  - name: db_sink
-    type: sf.substreams.sink.sql.v1.Service
-    config:
-      schema: "./schema.sql"
-      engine: postgres
-      postgresqlDsn: "postgresql://user:pass@localhost/db"
-      # Or for ClickHouse:
-      # engine: clickhouse  
-      # clickhouseDsn: "clickhouse://user:pass@localhost:9000/db"
-    inputs:
-      - map: db_out
+sink:
+  module: db_out
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: ./schema.sql
+    engine: postgres
+```
+
+**Cargo.toml dependency** (v4 with delta updates support):
+```toml
+[dependencies]
+substreams-database-change = "4"
+```
+
+**Running the sink** (DSN is passed on the command line, not in the manifest):
+```bash
+# 1. Build
+substreams build
+
+# 2. Setup system tables + apply schema.sql
+substreams-sink-sql setup "psql://user:pass@localhost:5432/db?sslmode=disable" my-substreams-sql-v0.1.0.spkg
+
+# 3. Run the sink
+substreams-sink-sql run "psql://user:pass@localhost:5432/db?sslmode=disable" my-substreams-sql-v0.1.0.spkg
 ```
 
 ### Advantages
@@ -138,6 +147,53 @@ sinks:
 - Trading applications
 - Balance tracking
 - Event sourcing
+
+### Delta Updates for Aggregations
+
+Delta updates enable atomic modifications to database rows without read-modify-write cycles. This is essential for building aggregation patterns like candles, counters, and real-time analytics — pushing chain-wide computation directly into the database instead of using Substreams store modules.
+
+> **Note:** Delta updates require PostgreSQL and `substreams-sink-sql` >= v4.12.0.
+
+```rust
+use substreams_database_change::tables::Tables;
+use substreams_database_change::pb::sf::substreams::sink::database::v1::DatabaseChanges;
+
+#[substreams::handlers::map]
+fn db_out(events: Events) -> Result<DatabaseChanges, substreams::errors::Error> {
+    let mut tables = Tables::new();
+
+    for event in &events.items {
+        // Composite primary keys use an array of tuples
+        tables.upsert_row("aggregates", [
+            ("key1", value1),
+            ("key2", value2),
+        ])
+            .set_if_null("first_seen", &timestamp)  // First write wins
+            .set("last_seen", &timestamp)            // Always overwrite
+            .max("highest", value)                   // Track maximum
+            .min("lowest", value)                    // Track minimum
+            .add("total", amount)                    // Accumulate
+            .add("count", 1i64);                     // Count
+    }
+
+    Ok(tables.to_database_changes())
+}
+```
+
+**Supported Delta Operations:**
+
+| Operation | SQL Equivalent | Use Case |
+|-----------|---------------|----------|
+| `set_if_null` | `COALESCE(column, value)` | First-write-wins |
+| `set` | `column = value` | Always overwrite |
+| `max` | `GREATEST(column, value)` | Track maximum |
+| `min` | `LEAST(column, value)` | Track minimum |
+| `add` | `COALESCE(column, 0) + value` | Accumulate |
+| `sub` | `COALESCE(column, 0) - value` | Decrement |
+
+**Important Notes:**
+- The `add()` operation requires values implementing `NumericAddable` — pass owned values (`volume.clone()` or `volume`) rather than `&String` references
+- Ordinals are automatically managed by the `Tables` struct — no manual management needed
 
 ## Relational Mappings Approach
 
@@ -281,28 +337,14 @@ volumes:
   postgres_data:
 ```
 
-**Connection Configuration**:
-```yaml
-# substreams.yaml
-sinks:
-  - name: postgres_sink
-    type: sf.substreams.sink.sql.v1.Service
-    config:
-      schema: "./schema.sql"
-      engine: postgres
-      postgresqlDsn: "postgresql://substreams:password@localhost:5432/substreams?sslmode=disable"
-      
-      # Connection pooling
-      maxConnections: 10
-      maxIdleConnections: 5
-      maxConnectionLifetime: "1h"
-      
-      # Batching for performance
-      flushInterval: "1s"
-      batchSize: 1000
-      
-    inputs:
-      - map: db_out
+**Running the Sink**:
+```bash
+# The DSN is passed as a CLI argument, not in the manifest
+substreams-sink-sql setup "psql://substreams:password@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
+substreams-sink-sql run "psql://substreams:password@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
+
+# Development mode (allows re-processing):
+substreams-sink-sql run --development-mode "psql://substreams:password@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
 ```
 
 ### PostgreSQL-Specific Features
@@ -410,23 +452,21 @@ volumes:
   clickhouse_data:
 ```
 
-**Substreams Configuration**:
+**Manifest Configuration** (ClickHouse):
 ```yaml
-sinks:
-  - name: clickhouse_sink
-    type: sf.substreams.sink.sql.v1.Service
-    config:
-      schema: "./clickhouse-schema.sql"
-      engine: clickhouse
-      clickhouseDsn: "clickhouse://default:@localhost:9000/default"
-      
-      # ClickHouse specific settings
-      batchSize: 10000
-      flushInterval: "5s"
-      compression: "lz4"
-      
-    inputs:
-      - map: db_out
+# In substreams.yaml, set engine to clickhouse
+sink:
+  module: db_out
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: ./clickhouse-schema.sql
+    engine: clickhouse
+```
+
+**Running the Sink** (DSN passed on command line):
+```bash
+substreams-sink-sql setup "clickhouse://default:@localhost:9000/default" ./my-substreams.spkg
+substreams-sink-sql run "clickhouse://default:@localhost:9000/default" ./my-substreams.spkg
 ```
 
 ### ClickHouse Schema Design
@@ -615,7 +655,7 @@ FROM (
 // Track last processed block for incremental updates
 #[substreams::handlers::store]
 pub fn store_last_block(block: Block, store: StoreSetInt64) {
-    store.set(0, "last_processed_block", &block.number.to_string(), block.number as i64);
+    store.set(0, "last_processed_block", &(block.number as i64));
 }
 
 // Only process new data
@@ -626,59 +666,50 @@ pub fn incremental_db_out(
 ) -> Result<DatabaseChanges, Error> {
     let last_processed = last_block_store.get_last("last_processed_block")
         .unwrap_or(0);
-    
-    if block.number <= last_processed {
+
+    if block.number <= last_processed as u64 {
         return Ok(DatabaseChanges::default()); // Skip already processed
     }
-    
+
     // Process only new block data
     process_block_data(block)
 }
 ```
 
 **Cursor-based Consistency**:
-```yaml
-# Ensure reorg handling in manifest
-modules:
-  - name: db_out
-    kind: map
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-        mode: sorted  # Ensures proper ordering for reorgs
-    output:
-      type: proto:db_out.DatabaseChanges
 
-sinks:
-  - name: db_sink
-    # Cursor management handled automatically
-    config:
-      ignoreReorgThreshold: 200  # Handle reorgs up to 200 blocks
-```
+Cursor management is handled automatically by `substreams-sink-sql`. The sink stores cursor state in the `cursors` system table, enabling automatic resumption and reorg handling. No special manifest configuration is needed — just run `substreams-sink-sql setup` followed by `run`.
 
 ## Advanced Patterns
 
 ### Multi-Database Sinks
 
-```yaml
-# Stream to both PostgreSQL and ClickHouse
-sinks:
-  - name: postgres_operational
-    type: sf.substreams.sink.sql.v1.Service
-    config:
-      engine: postgres
-      postgresqlDsn: "postgresql://user:pass@postgres:5432/operational"
-      schema: "./operational-schema.sql"
-    inputs:
-      - map: db_out_operational
+To stream to multiple databases, create separate substreams packages (or separate sink runs) with different `sink:` configurations:
 
-  - name: clickhouse_analytics  
-    type: sf.substreams.sink.sql.v1.Service
-    config:
-      engine: clickhouse
-      clickhouseDsn: "clickhouse://default:@clickhouse:9000/analytics"
-      schema: "./analytics-schema.sql"
-    inputs:
-      - map: db_out_analytics
+```yaml
+# operational-substreams.yaml - PostgreSQL for operational data
+sink:
+  module: db_out_operational
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: ./operational-schema.sql
+    engine: postgres
+```
+
+```yaml
+# analytics-substreams.yaml - ClickHouse for analytics
+sink:
+  module: db_out_analytics
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: ./analytics-schema.sql
+    engine: clickhouse
+```
+
+```bash
+# Run each sink separately with its own DSN
+substreams-sink-sql run "psql://user:pass@postgres:5432/operational" operational.spkg &
+substreams-sink-sql run "clickhouse://default:@clickhouse:9000/analytics" analytics.spkg &
 ```
 
 ### Data Transformation Pipelines
@@ -726,12 +757,12 @@ substreams run -s 1000000 -t +1000 db_out --debug
 
 **Schema Mismatches**:
 ```bash
-# Validate schema against database
-substreams sql validate --schema ./schema.sql --dsn "postgresql://..."
-
 # Compare expected vs actual schema
 pg_dump --schema-only dbname > current_schema.sql
-diff expected_schema.sql current_schema.sql
+diff schema.sql current_schema.sql
+
+# Re-run setup to apply schema changes (drops and recreates in dev mode)
+substreams-sink-sql setup "psql://..." my-substreams.spkg
 ```
 
 **Performance Issues**:
@@ -759,25 +790,16 @@ LIMIT 10;
 #[substreams::handlers::store]
 pub fn store_balances(events: Events, store: StoreSetBigInt) {
     for transfer in events.transfers {
-        // Use ordinal-based keys for reorg safety
-        let key = format!("{}:{}:{}", transfer.contract, transfer.from, block.number);
+        // Use ordinal for correct ordering within a block
+        let key = format!("{}:{}", transfer.contract, transfer.from);
         store.set(transfer.ordinal, &key, &transfer.amount);
     }
 }
 ```
 
 **Cursor Management**:
-```yaml
-# Proper cursor configuration
-sinks:
-  - name: db_sink
-    config:
-      # Ensure cursor persistence
-      cursorFile: "./cursor.json"
-      # Handle chain reorganizations  
-      reorgHandling: true
-      finalityBlocks: 200
-```
+
+Cursor state is automatically persisted in the `cursors` table created by `substreams-sink-sql setup`. On restart, the sink resumes from the last committed cursor. In development mode (`--development-mode`), undos are handled automatically for reorg safety.
 
 ### Monitoring and Alerting
 

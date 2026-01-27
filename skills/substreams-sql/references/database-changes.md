@@ -88,7 +88,7 @@ tables
 
 ```rust
 use substreams::prelude::*;
-use substreams_database_change::pb::database::DatabaseChanges;
+use substreams_database_change::pb::sf::substreams::sink::database::v1::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 use substreams_ethereum::pb::eth::v2::Block;
 
@@ -135,7 +135,7 @@ pub fn db_out(events: Events) -> Result<DatabaseChanges, Error> {
 
 ```rust
 #[substreams::handlers::map]
-pub fn db_out_liquidity_pools(
+pub fn db_out(
     pool_events: PoolEvents, 
     price_store: StoreGetProto<TokenPrice>
 ) -> Result<DatabaseChanges, Error> {
@@ -214,7 +214,9 @@ if new_balance != old_balance {
 if transfer.amount > DUST_THRESHOLD {
     tables
         .create_row("significant_transfers", transfer_id)
-        .set_all_transfer_fields(&transfer);
+        .set("from_addr", &transfer.from)
+        .set("to_addr", &transfer.to)
+        .set("amount", transfer.amount.to_string());
 }
 ```
 
@@ -237,24 +239,24 @@ for (address, balance_change) in balance_changes {
 
 ### Ordinal-based Consistency
 
-```rust
-// Use ordinals for proper reorg handling
-#[substreams::handlers::map]
-pub fn db_out_with_ordinals(block: Block) -> Result<DatabaseChanges, Error> {
-    let mut tables = Tables::new();
-    let mut ordinal = 0u64;
+Ordinals are automatically managed by the `Tables` struct. Each call to `create_row`, `update_row`, `upsert_row`, or `delete_row` increments an internal ordinal counter, ensuring correct ordering for reorg handling. You do not need to set ordinals manually.
 
-    for (tx_idx, tx) in block.transaction_traces.iter().enumerate() {
-        for (log_idx, log) in tx.receipt.logs.iter().enumerate() {
-            ordinal += 1;
-            
+```rust
+#[substreams::handlers::map]
+pub fn db_out(block: Block) -> Result<DatabaseChanges, Error> {
+    let mut tables = Tables::new();
+
+    for trx in block.transactions() {
+        for (log, _call) in trx.logs_with_calls() {
+            let log_id = format!("{}:{}", Hex::encode(&trx.hash), log.index);
+
+            // Ordinal is assigned automatically by Tables
             tables
-                .create_row("all_logs", format!("{}:{}", tx.hash, log_idx))
-                .set_ordinal(ordinal)  // Critical for reorg handling
-                .set("tx_hash", &tx.hash)
-                .set("log_index", log_idx as i32)
-                .set("address", &log.address)
-                .set("data", &log.data);
+                .create_row("all_logs", log_id)
+                .set("tx_hash", Hex::encode(&trx.hash))
+                .set("log_index", log.index)
+                .set("address", Hex::encode(&log.address))
+                .set("data", Hex::encode(&log.data));
         }
     }
 
@@ -287,34 +289,35 @@ tables.create_row("events", uuid::new())          // BAD
 ### Field Types and Validation
 
 ```rust
-// Proper type handling
+// Proper type handling — all values go through the set() method
+// which accepts any type implementing ToDatabaseValue
 tables
     .create_row("transactions", &tx_hash)
     .set("hash", &tx_hash)                    // String
     .set("block_number", tx.block_number)     // i64
     .set("gas_used", tx.gas_used.to_string()) // BigInt as string
-    .set("success", tx.status == 1)           // Boolean  
+    .set("success", tx.status == 1)           // Boolean
     .set("timestamp", tx.timestamp)           // Unix timestamp
-    .set_bytes("input_data", &tx.input);      // Binary data
+    .set("input_data", Hex::encode(&tx.input)); // Binary as hex string
 ```
 
 ### Handling NULL Values
 
 ```rust
-// Optional fields
-if let Some(contract_address) = log.address {
-    tables.set("contract_address", &contract_address);
+// Optional fields — set() is called on a Row, not on Tables directly
+let row = tables.create_row("contracts", &contract_id);
+
+if let Some(name) = contract_name {
+    row.set("name", name);
 } else {
-    tables.set("contract_address", ""); // Or use NULL representation
+    row.set("name", ""); // Empty string as fallback
 }
 
-// Use Options for clarity
-fn set_optional_field(tables: &mut Tables, key: &str, value: Option<&str>) {
-    match value {
-        Some(v) => tables.set(key, v),
-        None => tables.set(key, "NULL"), // Database-specific NULL handling
-    }
-}
+// For optional numeric fields, use set_if_null with delta updates
+tables
+    .upsert_row("stats", &key)
+    .set_if_null("first_value", &value)  // Only set if column is NULL
+    .set("latest_value", &value);
 ```
 
 ## Error Handling
@@ -323,7 +326,7 @@ fn set_optional_field(tables: &mut Tables, key: &str, value: Option<&str>) {
 
 ```rust
 #[substreams::handlers::map]
-pub fn db_out_robust(events: Events) -> Result<DatabaseChanges, Error> {
+pub fn db_out(events: Events) -> Result<DatabaseChanges, Error> {
     let mut tables = Tables::new();
     let mut errors = Vec::new();
 
@@ -332,7 +335,8 @@ pub fn db_out_robust(events: Events) -> Result<DatabaseChanges, Error> {
             Ok(transfer_data) => {
                 tables
                     .create_row("transfers", &transfer_data.id)
-                    .set_all(&transfer_data.fields);
+                    .set("tx_hash", &transfer_data.tx_hash)
+                    .set("amount", &transfer_data.amount);
             },
             Err(e) => {
                 errors.push(format!("Transfer {}: {}", transfer.tx_hash, e));
@@ -396,9 +400,12 @@ for event in events {
     }
 }
 
-// Apply in batches  
+// Apply in batches
 for transfer in new_transfers {
-    tables.create_row("transfers", &transfer.id).set_all(&transfer);
+    tables.create_row("transfers", &transfer.id)
+        .set("from_addr", &transfer.from)
+        .set("to_addr", &transfer.to)
+        .set("amount", &transfer.amount);
 }
 
 for (address, transfers) in balance_updates {
@@ -410,18 +417,18 @@ for (address, transfers) in balance_updates {
 ### Memory Efficiency
 
 ```rust
-// Process in chunks for large blocks
-const CHUNK_SIZE: usize = 1000;
-
-for chunk in block.transaction_traces.chunks(CHUNK_SIZE) {
-    let mut chunk_tables = Tables::new();
-    
-    for tx in chunk {
-        process_transaction(&mut chunk_tables, tx);
+// Process transactions efficiently — Tables handles batching internally.
+// Use references to avoid cloning large structures.
+for trx in block.transactions() {
+    for (log, _call) in trx.logs_with_calls() {
+        if is_relevant_event(log) {
+            // Only extract the fields you need
+            tables
+                .create_row("events", format!("{}:{}", Hex::encode(&trx.hash), log.index))
+                .set("tx_hash", Hex::encode(&trx.hash))
+                .set("address", Hex::encode(&log.address));
+        }
     }
-    
-    // Merge chunk results
-    tables.merge(chunk_tables);
 }
 ```
 

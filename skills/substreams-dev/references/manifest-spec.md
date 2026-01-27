@@ -67,6 +67,17 @@ modules:
 - `doc`: Multi-line description (deprecated, use a `README.md` file instead)
 - `image`: Container image for custom runtime
 
+## Imports Section
+
+Import external `.spkg` packages to use their protobuf definitions and module types:
+
+```yaml
+imports:
+    imported_pkg: https://example.com/path/to/package-v1.0.0.spkg
+```
+
+Imported packages make their protobuf types and modules available for use in your manifest. See sink-specific documentation for required imports.
+
 ## Protobuf Section
 
 ### Files
@@ -78,6 +89,19 @@ protobuf:
   files:
     - events.proto
     - types.proto
+  importPaths:
+    - ./proto
+```
+
+### Exclude Paths
+
+**Always** include `excludePaths` when importing spkgs, even when you have no custom proto files. Without this, the build may generate unnecessary proto code or fail:
+
+```yaml
+protobuf:
+  excludePaths:
+    - sf/substreams
+    - google
 ```
 
 ### Import Paths
@@ -286,6 +310,24 @@ substreams run map_token_transfers -p map_token_transfers=0xa0b86a33e6...
   inputs:
     - map: map_events
 ```
+
+## Sink Section
+
+Required when deploying to a sink service. Without this section, the sink will error with `no sink config found in spkg`.
+
+```yaml
+sink:
+  module: <output_module_name>
+  type: <sink.service.protobuf.Type>
+  config:
+    # Sink-specific configuration
+```
+
+- `module`: The map module whose output feeds the sink
+- `type`: The sink service protobuf type (from imported spkg)
+- `config`: Sink-specific configuration fields
+
+See the SQL skill documentation for SQL sink configuration details.
 
 ## Best Practices
 
