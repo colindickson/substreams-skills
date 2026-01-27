@@ -118,7 +118,7 @@ specVersion: v0.1.0
 package:
   name: my-substreams
   version: v1.0.0
-  doc: Description of what this substreams does
+  description: Description of what this substreams does
 ```
 
 **Protobuf imports**:
@@ -150,6 +150,7 @@ Supported networks: See [references/networks.md](./references/networks.md)
 ### Map Handler Example
 
 ```rust
+use substreams::errors::Error;
 use substreams::prelude::*;
 use substreams_ethereum::pb::eth::v2::Block;
 
@@ -158,7 +159,7 @@ pub fn map_events(block: Block) -> Result<Events, Error> {
     let mut events = Events::default();
 
     for trx in block.transactions() {
-        for log in trx.logs() {
+        for (log, _call) in trx.logs_with_calls() {
             // Process logs, extract events
             if is_transfer_event(log) {
                 events.transfers.push(extract_transfer(log));
@@ -217,7 +218,7 @@ pub fn map_events(block: Block) -> Result<Events, Error> {
         // ❌ BAD: Cloning entire transaction
         let transaction = trx.clone();
 
-        for log in transaction.receipt.logs {
+        for (log, _call) in transaction.logs_with_calls() {
             // ❌ BAD: Cloning log
             let log_copy = log.clone();
             if is_transfer_event(&log_copy) {
@@ -240,7 +241,7 @@ pub fn map_events(block: Block) -> Result<Events, Error> {
     // ✅ GOOD: Iterate by reference
     for trx in block.transactions() {
         // ✅ GOOD: Borrow, don't clone
-        for log in &trx.receipt.logs {
+        for (log, _call) in trx.logs_with_calls() {
             if is_transfer_event(log) {
                 // ✅ GOOD: Only extract what you need
                 events.transfers.push(extract_transfer(log));
@@ -286,10 +287,10 @@ let trx_copy = transaction.clone(); // Avoid this!
 
 ### Performance Tips
 
-1. **Iterate by reference**: Use `&` when iterating
+1. **Use `logs_with_calls()`**: Iterate logs without cloning
    ```rust
-   for log in &trx.receipt.logs { } // Good
-   for log in trx.receipt.logs.clone() { } // Bad
+   for (log, _call) in trx.logs_with_calls() { } // Good
+   for log in trx.receipt.as_ref().unwrap().logs.clone() { } // Bad
    ```
 
 2. **Use references when appropriate**: Pass references to avoid unnecessary cloning
@@ -302,7 +303,7 @@ let trx_copy = transaction.clone(); // Avoid this!
    ```rust
    // Good: Extract only needed fields
    let amount = parse_amount(&log.data);
-   
+
    // Bad: Copy entire log just to get one field
    let log_copy = log.clone();
    let amount = parse_amount(&log_copy.data);
@@ -383,13 +384,33 @@ See [references/patterns.md](./references/patterns.md) for detailed examples:
 * Parameterized modules
 * Dynamic data sources
 
+## Querying Chain Head Block
+
+To get the current head block of a chain (useful for determining the latest block number):
+
+**Using Substreams:**
+```bash
+substreams run common@v0.1.0 -e=<network-id-alias-or-host> -s -1 -o jsonl
+```
+Read the first line of output to get the head block information. The `-s -1` flag starts from the latest block.
+
+**Using firecore:**
+```bash
+# JSON output (use jq for further processing if available)
+firecore tools firehose-client <network-id-alias-or-host> -o json -- -1
+
+# Text output (less detail), first line looks like:
+# Block #24327807 (14b58bd3fa091c05a46d084bba1e78090d52556d29f4312da77b7aa3220423f4)
+firecore tools firehose-client <network-id-alias-or-host> -o text -- -1
+```
+Read the first line of output to get the head block information.
+
 ## Development Tips
 
 1. **Start small**: Begin with 1000 block range for testing
-2. **Use GUI**: `substreams gui` for visual debugging (when available)
-3. **Check estimates**: `substreams estimate` before processing large ranges
-4. **Version control**: Commit `.spkg` files for reproducibility
-5. **Document modules**: Add `doc:` fields in manifest for clarity
+1. **Use GUI**: `substreams gui` for visual debugging (when available)
+1. **Version control**: Commit `.spkg` files for reproducibility
+1. **Document modules**: Add `doc:` fields in manifest for clarity
 
 ## Troubleshooting
 
@@ -409,7 +430,6 @@ See [references/patterns.md](./references/patterns.md) for detailed examples:
 
 * Add indexes to skip irrelevant blocks
 * Use `--production-mode` for large ranges
-* Check store size (use `substreams gui` or estimate)
 
 ## Resources
 

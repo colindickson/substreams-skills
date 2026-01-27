@@ -2,6 +2,14 @@
 
 Collection of proven patterns and best practices for Substreams development.
 
+> **Note:** Code examples below assume the following imports unless stated otherwise:
+> ```rust
+> use substreams::errors::Error;
+> use substreams::prelude::*;
+> use substreams::Hex;
+> use substreams_ethereum::pb::eth::v2::{Block, TransactionTrace};
+> ```
+
 ## Event Extraction Patterns
 
 ### Recommended: Using ABI Generator
@@ -27,7 +35,7 @@ pub fn map_transfers(block: Block) -> Result<Transfers, Error> {
     let mut transfers = Transfers::default();
     
     for trx in block.transactions() {
-        for log in &trx.receipt.logs {
+        for (log, _call) in trx.logs_with_calls() {
             // Use generated ABI decoder
             if let Some(transfer) = Transfer::match_and_decode(log) {
                 transfers.items.push(Transfer {
@@ -56,7 +64,7 @@ pub fn map_dex_events(block: Block) -> Result<DexEvents, Error> {
     let mut events = DexEvents::default();
     
     for trx in block.transactions() {
-        for log in &trx.receipt.logs {
+        for (log, _call) in trx.logs_with_calls() {
             match classify_event(log) {
                 EventType::UniswapV2Swap => {
                     events.swaps.push(extract_uniswap_v2_swap(log, trx, &block));
@@ -275,7 +283,7 @@ pub fn map_contract_events(
     let mut events = ContractEvents::default();
     
     for trx in block.transactions() {
-        for log in &trx.receipt.logs {
+        for (log, _call) in trx.logs_with_calls() {
             let contract_addr = Hex::encode(&log.address).to_lowercase();
             if contract_addr == target_contract {
                 events.items.push(extract_event(log, trx, &block));
@@ -313,11 +321,11 @@ pub fn map_filtered_events(
     
     for trx in block.transactions() {
         // Skip failed transactions if not included
-        if !params.include_failed && !trx.receipt.status {
+        if !params.include_failed && trx.status() != substreams_ethereum::pb::eth::v2::TransactionTraceStatus::Succeeded {
             continue;
         }
         
-        for log in &trx.receipt.logs {
+        for (log, _call) in trx.logs_with_calls() {
             let contract = Hex::encode(&log.address).to_lowercase();
             
             if params.contracts.contains(&contract) {
@@ -354,7 +362,7 @@ pub fn map_dynamic_contracts(
     let active_contracts = get_active_contracts(&registry_store, block.number);
     
     for trx in block.transactions() {
-        for log in &trx.receipt.logs {
+        for (log, _call) in trx.logs_with_calls() {
             let contract = Hex::encode(&log.address);
             
             if active_contracts.contains(&contract) {
@@ -435,7 +443,7 @@ pub fn map_strict_events(block: Block) -> Result<Events, Error> {
 fn process_transaction_strict(trx: &TransactionTrace) -> Result<Vec<Event>, Error> {
     let mut events = Vec::new();
     
-    for log in &trx.receipt.logs {
+    for (log, _call) in trx.logs_with_calls() {
         // Validate data integrity before processing
         if log.topics.is_empty() {
             return Err(anyhow::anyhow!("Log missing topics at tx {}", Hex::encode(&trx.hash)));
@@ -485,26 +493,23 @@ pub fn map_filtered_efficiently(block: Block) -> Result<Events, Error> {
     // Pre-filter transactions
     let relevant_transactions: Vec<_> = block
         .transactions()
-        .iter()
-        .filter(|trx| has_relevant_logs(trx))
+        .filter(|trx| {
+            trx.logs_with_calls().any(|(log, _call)| {
+                !log.topics.is_empty() &&
+                TARGET_SIGNATURES.contains(&log.topics[0])
+            })
+        })
         .collect();
-    
-    for trx in relevant_transactions {
-        for log in &trx.receipt.logs {
+
+    for trx in &relevant_transactions {
+        for (log, _call) in trx.logs_with_calls() {
             if is_target_event(log) {
                 events.items.push(extract_event(log, trx, &block));
             }
         }
     }
-    
-    Ok(events)
-}
 
-fn has_relevant_logs(trx: &TransactionTrace) -> bool {
-    trx.receipt.logs.iter().any(|log| {
-        !log.topics.is_empty() && 
-        TARGET_SIGNATURES.contains(&log.topics[0])
-    })
+    Ok(events)
 }
 ```
 
@@ -561,7 +566,9 @@ mod tests {
         trx.hash = vec![0x12; 32];
         
         // Add test logs
-        trx.receipt.logs.push(create_transfer_log());
+        let mut receipt = substreams_ethereum::pb::eth::v2::TransactionReceipt::default();
+        receipt.logs.push(create_transfer_log());
+        trx.receipt = Some(receipt);
         
         trx
     }

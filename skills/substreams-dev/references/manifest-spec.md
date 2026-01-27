@@ -10,9 +10,7 @@ package:
   name: my-substreams
   version: v1.0.0
   url: https://github.com/myorg/my-substreams
-  doc: |
-    Description of what this substreams does.
-    Can be multi-line.
+  description: Short description of what this substreams does
 
 protobuf:
   files:
@@ -65,7 +63,8 @@ modules:
 ### Optional Fields
 
 - `url`: Repository or documentation URL
-- `doc`: Multi-line description
+- `description`: Short description of the package
+- `doc`: Multi-line description (deprecated, use a `README.md` file instead)
 - `image`: Container image for custom runtime
 
 ## Protobuf Section

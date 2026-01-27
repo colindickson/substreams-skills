@@ -6,7 +6,7 @@ Complete list of blockchain networks supported by Substreams, derived from [The 
 
 ### Ethereum Networks
 - `mainnet` - Ethereum Mainnet
-- `sepolia` - Ethereum Sepolia Testnet  
+- `sepolia` - Ethereum Sepolia Testnet
 - `holesky` - Ethereum Holesky Testnet
 - `hoodi` - Ethereum Hoodi Testnet
 
@@ -86,27 +86,26 @@ Complete list of blockchain networks supported by Substreams, derived from [The 
 - `litecoin` - Litecoin Mainnet
 
 ### Cosmos Networks
-- `injective-mainnet` - Injective Mainnet
+- `injective` - Injective Mainnet
 - `injective-testnet` - Injective Testnet
 - `mantra-mainnet` - Mantra Mainnet
 - `mantra-testnet` - Mantra Dukong Testnet
 
 ### NEAR Networks
-- `near-mainnet` - Near Mainnet
+- `near` - Near Mainnet
 - `near-testnet` - Near Testnet
 
 ### Solana Networks
-- `solana-mainnet-beta` - Solana Mainnet
-- `solana-accounts` - Solana Accounts
+- `solana` - Solana Mainnet
+- `solana-accounts` - Solana Mainnet (Accounts data)
 - `solana-devnet` - Solana Devnet
 - `bnb-svm` - svmBNB Mainnet
 
 ### Starknet Networks
-- `starknet-mainnet` - Starknet Mainnet
+- `starknet` - Starknet Mainnet
 - `starknet-testnet` - Starknet Sepolia Testnet
 
 ### Other Networks
-- `arweave-mainnet` - Arweave
 - `stellar` - Stellar Mainnet
 - `stellar-testnet` - Stellar Testnet
 - `tron` - TRON Mainnet
@@ -156,17 +155,20 @@ modules:
 
 ## Running Substreams
 
-Specify the endpoint when running:
+Specify the network when running using its network alias (the `-e` flag accepts both network aliases and full endpoint URLs):
 
 ```bash
 # Ethereum Mainnet
-substreams run -e mainnet.eth.streamingfast.io:443 substreams.yaml module_name
+substreams run -e mainnet substreams.yaml module_name
 
 # Polygon
-substreams run -e polygon.streamingfast.io:443 substreams.yaml module_name
+substreams run -e matic substreams.yaml module_name
 
 # Solana
-substreams run -e solana.streamingfast.io:443 substreams.yaml module_name
+substreams run -e solana substreams.yaml module_name
+
+# Or use explicit endpoint URLs
+substreams run -e mainnet.eth.streamingfast.io:443 substreams.yaml module_name
 ```
 
 ## Network Configuration
@@ -175,6 +177,10 @@ substreams run -e solana.streamingfast.io:443 substreams.yaml module_name
 All networks require authentication:
 
 ```bash
+# Recommended: API key
+export SUBSTREAMS_API_KEY="your-api-key"
+
+# Alternative: JWT token (legacy)
 export SUBSTREAMS_API_TOKEN="your-api-token"
 ```
 
@@ -191,7 +197,7 @@ export SUBSTREAMS_API_TOKEN="your-api-token"
 ## Best Practices
 
 1. **Choose the right network**: Consider transaction volume and costs
-2. **Test on testnets**: Use Sepolia or Holesky for Ethereum testing
+2. **Test on local network or testnets**: Use Local Development Environment ([Ethereum](https://docs.substreams.dev/how-to-guides/develop-your-own-substreams/on-evm/local-development), [Solana](https://docs.substreams.dev/how-to-guides/develop-your-own-substreams/solana/local-development)) or some testnets like Sepolia or Holesky for Ethereum testing
 3. **Monitor performance**: Different networks have different characteristics
 4. **Handle network-specific features**: Some features may not be available on all networks
 5. **Consider data costs**: Historical data usage may incur costs
@@ -199,7 +205,7 @@ export SUBSTREAMS_API_TOKEN="your-api-token"
 ## Getting Access
 
 1. Sign up at [thegraph.market](https://thegraph.market)
-2. Generate API token
+2. Create API key
 3. Configure authentication
 4. Start building!
 

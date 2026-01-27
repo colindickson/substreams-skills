@@ -2,6 +2,14 @@
 
 Deep dive into the three core module types: Map, Store, and Index.
 
+> **Note:** Code examples below assume the following imports unless stated otherwise:
+> ```rust
+> use substreams::errors::Error;
+> use substreams::prelude::*;
+> use substreams::Hex;
+> use substreams_ethereum::pb::eth::v2::{Block, TransactionTrace};
+> ```
+
 ## Map Modules
 
 Map modules transform input data into output data. They are stateless and process one block at a time.
@@ -29,7 +37,7 @@ pub fn map_transfers(block: Block) -> Result<Transfers, Error> {
     let mut transfers = Transfers::default();
     
     for trx in block.transactions() {
-        for log in &trx.receipt.logs {
+        for (log, _call) in trx.logs_with_calls() {
             if is_erc20_transfer(log) {
                 transfers.items.push(Transfer {
                     tx_hash: Hex::encode(&trx.hash),
