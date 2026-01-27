@@ -1,0 +1,17 @@
+{
+  "name": "streamingfast-substreams",
+  "owner": {
+    "name": "StreamingFast",
+    "email": "info@streamingfast.io"
+  },
+  "metadata": {
+    "description": "StreamingFast Substreams plugins for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "substreams-dev",
+      "source": "./",
+      "description": "Agent Skills for Substreams development - high-performance blockchain data indexing and transformation"
+    }
+  ]
+}
