@@ -78,6 +78,22 @@ imports:
 
 Imported packages make their protobuf types and modules available for use in your manifest. See sink-specific documentation for required imports.
 
+### Common Ethereum Imports
+
+For Ethereum Substreams, use the `substreams-ethereum` spkg (NOT `sf-ethereum` which doesn't exist):
+
+```yaml
+imports:
+  # Ethereum block types - REQUIRED for Ethereum chains
+  eth: https://github.com/streamingfast/substreams-ethereum/releases/download/v0.11.1/substreams-ethereum-v0.11.1.spkg
+
+  # For SQL sinks - provides DatabaseChanges protobuf type
+  database: https://github.com/streamingfast/substreams-sink-database-changes/releases/download/v3.0.0/substreams-sink-database-changes-v3.0.0.spkg
+  sql: https://github.com/streamingfast/substreams-sink-sql/releases/download/protodefs-v1.0.7/substreams-sink-sql-protodefs-v1.0.7.spkg
+```
+
+**Note:** Always check for the latest release versions on GitHub. The URLs above are examples and may be outdated.
+
 ## Protobuf Section
 
 ### Files

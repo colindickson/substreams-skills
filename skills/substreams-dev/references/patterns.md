@@ -8,6 +8,7 @@ Collection of proven patterns and best practices for Substreams development.
 > use substreams::prelude::*;
 > use substreams::Hex;
 > use substreams_ethereum::pb::eth::v2::{Block, TransactionTrace};
+> use substreams_ethereum::Event;  // REQUIRED for .decode() on ABI-generated events
 > ```
 
 ## Event Extraction Patterns
@@ -23,6 +24,16 @@ substreams init
 # This will generate typed Rust bindings from contract ABIs
 # See https://github.com/streamingfast/substreams-ethereum for details
 ```
+
+**Required Import for ABI Decoding:**
+
+When using generated ABI bindings (from `build.rs`), you **must** import the `Event` trait to use `.decode()` or `.match_and_decode()` methods:
+
+```rust
+use substreams_ethereum::Event;  // Required for ABI event decoding
+```
+
+Without this import, you'll get errors like "no method named `decode` found for struct `OrderFilled`".
 
 Generated code example:
 ```rust
