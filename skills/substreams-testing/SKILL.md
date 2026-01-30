@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.0.1
+  version: 1.0.2
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -41,7 +41,7 @@ Test individual functions and modules in isolation.
 
 **What to Test**:
 - ✅ Data parsing and validation
-- ✅ Business logic calculations  
+- ✅ Business logic calculations
 - ✅ Error handling edge cases
 - ✅ Protobuf message construction
 - ✅ Helper functions and utilities
@@ -52,20 +52,20 @@ Test individual functions and modules in isolation.
 mod tests {
     use super::*;
     use substreams_ethereum::pb::eth::v2::{Block, TransactionTrace, Log};
-    
+
     #[test]
     fn test_parse_erc20_transfer() {
         // Arrange
         let log = create_test_transfer_log(
             "0xa0b86a33e6fe17d67c8b086c6c4c0e3c8e3b7ec2", // USDC
             "0x742d35Cc6B8B4d1e8d37a1E5B0b4F8e8B7F4D2a1", // from
-            "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", // to  
+            "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", // to
             "1000000000000000000" // 1 token (18 decimals)
         );
-        
+
         // Act
         let result = parse_erc20_transfer(&log);
-        
+
         // Assert
         assert!(result.is_ok());
         let transfer = result.unwrap();
@@ -74,31 +74,31 @@ mod tests {
         assert_eq!(transfer.to, "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed");
         assert_eq!(transfer.amount, BigInt::from_str("1000000000000000000").unwrap());
     }
-    
+
     #[test]
     fn test_invalid_transfer_log() {
         // Test with malformed log
         let invalid_log = create_test_log_with_insufficient_topics();
-        
+
         let result = parse_erc20_transfer(&invalid_log);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("insufficient topics"));
     }
-    
-    #[test] 
+
+    #[test]
     fn test_zero_amount_transfer() {
         let log = create_test_transfer_log(
             "0xa0b86a33e6fe17d67c8b086c6c4c0e3c8e3b7ec2",
-            "0x742d35Cc6B8B4d1e8d37a1E5B0b4F8e8B7F4D2a1", 
+            "0x742d35Cc6B8B4d1e8d37a1E5B0b4F8e8B7F4D2a1",
             "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
             "0" // Zero amount
         );
-        
+
         let result = parse_erc20_transfer(&log);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().amount, BigInt::zero());
     }
-    
+
     // Test helper functions
     fn create_test_transfer_log(contract: &str, from: &str, to: &str, amount: &str) -> Log {
         Log {
@@ -130,20 +130,20 @@ use your_substreams::*;
 fn test_map_transfers_integration() {
     // Use real Ethereum block with known transfers
     let block = load_test_block(17000000);
-    
+
     let result = map_transfers(block).unwrap();
-    
+
     // Verify expected transfers were found
     assert!(result.transfers.len() > 0);
-    
+
     // Check specific known transfer
     let usdc_transfers: Vec<_> = result.transfers
         .iter()
         .filter(|t| t.contract == "0xa0b86a33e6fe17d67c8b086c6c4c0e3c8e3b7ec2")
         .collect();
-    
+
     assert!(usdc_transfers.len() > 0);
-    
+
     // Validate data integrity
     for transfer in &result.transfers {
         assert!(transfer.amount > BigInt::zero());
@@ -158,16 +158,16 @@ fn test_store_balances_integration() {
     // Test balance calculation with multiple blocks
     let blocks = load_test_blocks(17000000..17000010);
     let mut store = create_test_store();
-    
+
     for block in blocks {
         let transfers = map_transfers(block).unwrap();
         store_balances(transfers, &store);
     }
-    
+
     // Verify balance consistency
     let alice = "0x742d35Cc6B8B4d1e8d37a1E5B0b4F8e8B7F4D2a1";
     let usdc = "0xa0b86a33e6fe17d67c8b086c6c4c0e3c8e3b7ec2";
-    
+
     let balance = store.get_last(&format!("{}:{}", usdc, alice));
     assert!(balance.is_some());
     assert!(balance.unwrap() >= 0);
@@ -178,7 +178,7 @@ fn load_test_block(block_number: u64) -> Block {
     // Load from fixtures or fetch from RPC
     let block_data = std::fs::read(format!("fixtures/block_{}.bin", block_number))
         .expect("Test block data not found");
-    
+
     Block::decode(block_data.as_slice()).expect("Invalid block data")
 }
 
@@ -214,24 +214,24 @@ fn test_full_substreams_execution() {
         ])
         .output()
         .expect("Failed to execute substreams");
-    
-    assert!(output.status.success(), 
-           "Substreams execution failed: {}", 
+
+    assert!(output.status.success(),
+           "Substreams execution failed: {}",
            String::from_utf8_lossy(&output.stderr));
-    
+
     // Parse output and validate
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    
+
     // Should have output for each block
     assert!(lines.len() >= 100);
-    
+
     // Check for valid JSON output
     for line in &lines {
         if line.starts_with("{") {
             let json: Value = serde_json::from_str(line)
                 .expect("Invalid JSON output");
-            
+
             // Validate structure
             assert!(json["transfers"].is_array());
             assert!(json["block_number"].is_u64());
@@ -239,13 +239,13 @@ fn test_full_substreams_execution() {
     }
 }
 
-#[test] 
+#[test]
 fn test_performance_requirements() {
     let start = std::time::Instant::now();
-    
+
     let output = Command::new("substreams")
         .args(&[
-            "run", 
+            "run",
             "-s", "17000000",
             "-t", "+1000",  // 1000 blocks
             "map_transfers",
@@ -253,15 +253,15 @@ fn test_performance_requirements() {
         ])
         .output()
         .expect("Failed to execute substreams");
-    
+
     let duration = start.elapsed();
-    
+
     assert!(output.status.success());
-    
+
     // Performance requirement: should process 1000 blocks in under 60 seconds
-    assert!(duration.as_secs() < 60, 
+    assert!(duration.as_secs() < 60,
            "Processing took too long: {}s", duration.as_secs());
-    
+
     println!("Processed 1000 blocks in {:?}", duration);
 }
 ```
@@ -342,7 +342,7 @@ use your_substreams::*;
 
 fn benchmark_map_transfers(c: &mut Criterion) {
     let block = load_test_block(17000000); // Heavy block with many transfers
-    
+
     c.bench_function("map_transfers", |b| {
         b.iter(|| {
             black_box(map_transfers(black_box(block.clone())))
@@ -353,7 +353,7 @@ fn benchmark_map_transfers(c: &mut Criterion) {
 fn benchmark_store_operations(c: &mut Criterion) {
     let transfers = load_test_transfers();
     let store = create_test_store();
-    
+
     c.bench_function("store_balances", |b| {
         b.iter(|| {
             store_balances(black_box(transfers.clone()), black_box(&store))
@@ -388,7 +388,7 @@ cargo bench -- --baseline before
 echo "Testing development mode..."
 time substreams run -s 17000000 -t +1000 map_transfers > /tmp/dev_output.txt
 
-echo "Testing production mode..."  
+echo "Testing production mode..."
 time substreams run -s 17000000 -t +1000 map_transfers --production-mode > /tmp/prod_output.txt
 
 # Compare outputs for correctness
@@ -404,7 +404,7 @@ fi
 echo "Development mode timing:"
 grep "real" /tmp/dev_time.txt
 
-echo "Production mode timing:"  
+echo "Production mode timing:"
 grep "real" /tmp/prod_time.txt
 ```
 
@@ -455,17 +455,17 @@ impl TestDataBuilder {
             }
         }
     }
-    
+
     pub fn with_timestamp(mut self, timestamp: u64) -> Self {
         self.block.timestamp_seconds = timestamp;
         self
     }
-    
+
     pub fn add_erc20_transfer(
-        mut self, 
+        mut self,
         contract: &str,
-        from: &str, 
-        to: &str, 
+        from: &str,
+        to: &str,
         amount: &str
     ) -> Self {
         let tx = TransactionTrace {
@@ -476,11 +476,11 @@ impl TestDataBuilder {
             }),
             ..Default::default()
         };
-        
+
         self.block.transaction_traces.push(tx);
         self
     }
-    
+
     pub fn add_uniswap_swap(
         mut self,
         pool: &str,
@@ -496,11 +496,11 @@ impl TestDataBuilder {
             }),
             ..Default::default()
         };
-        
+
         self.block.transaction_traces.push(tx);
         self
     }
-    
+
     pub fn build(self) -> Block {
         self.block
     }
@@ -524,9 +524,9 @@ fn test_complex_scenario() {
             "500000000000000000" // 0.5 ETH out
         )
         .build();
-    
+
     let result = map_transfers(block).unwrap();
-    
+
     // Test the complex interaction
     assert_eq!(result.transfers.len(), 3); // Transfer + 2 swap transfers
 }
@@ -565,7 +565,7 @@ quickcheck! {
             &transfer.to,
             &transfer.amount.to_string()
         );
-        
+
         // Parse it back
         match parse_erc20_transfer(&log) {
             Ok(parsed) => {
@@ -582,21 +582,21 @@ quickcheck! {
             }
         }
     }
-    
+
     fn prop_balance_calculation_is_consistent(transfers: Vec<ArbitraryTransfer>) -> bool {
         let block = create_block_with_transfers(&transfers);
         let result = map_transfers(block).unwrap();
-        
+
         // Sum of all amounts should be conserved
         let total_out: BigInt = result.transfers.iter()
             .map(|t| &t.amount)
             .sum();
-            
+
         let expected_total: BigInt = transfers.iter()
             .filter(|t| t.from != t.to) // Exclude self-transfers
             .map(|t| BigInt::from(t.amount))
             .sum();
-            
+
         total_out == expected_total
     }
 }
@@ -613,7 +613,7 @@ fn test_reorganization_handling() {
         create_block(17000001, "0xdef456", "0xabc123"),
         create_block(17000002, "0x789xyz", "0xdef456"),
     ];
-    
+
     // Alternative chain (reorg)
     let reorg_blocks = vec![
         create_block(17000000, "0xabc123", "0x000000"), // Same
@@ -621,30 +621,30 @@ fn test_reorganization_handling() {
         create_block(17000002, "0x222bbb", "0x111aaa"), // Different
         create_block(17000003, "0x333ccc", "0x222bbb"), // New
     ];
-    
+
     let mut store = create_test_store();
-    
+
     // Process original chain
     for block in &original_blocks {
         let transfers = map_transfers(block.clone()).unwrap();
         store_balances(transfers, &store);
     }
-    
+
     let balance_after_original = store.get_last("USDC:alice").unwrap_or(0);
-    
+
     // Process reorg (Substreams handles the undo/redo automatically)
     // In reality, this would be handled by the Substreams engine
     for block in &reorg_blocks {
         let transfers = map_transfers(block.clone()).unwrap();
         store_balances(transfers, &store);
     }
-    
+
     let balance_after_reorg = store.get_last("USDC:alice").unwrap_or(0);
-    
+
     // Verify balances are correct after reorg
     // This depends on your specific test scenario
     assert_ne!(balance_after_original, balance_after_reorg);
-    
+
     println!("Balance before reorg: {}", balance_after_original);
     println!("Balance after reorg: {}", balance_after_reorg);
 }
@@ -672,10 +672,10 @@ fn test_malformed_data_handling() {
         ("corrupted_data", create_log_with_corrupted_data()),
         ("oversized_amount", create_log_with_oversized_amount()),
     ];
-    
+
     for (case_name, log) in test_cases {
         let result = parse_erc20_transfer(&log);
-        
+
         match result {
             Ok(transfer) => {
                 // Some malformed data might still parse
@@ -684,7 +684,7 @@ fn test_malformed_data_handling() {
             Err(e) => {
                 // Expected for malformed data
                 println!("Case '{}' correctly failed: {}", case_name, e);
-                
+
                 // Verify error contains useful information
                 assert!(e.to_string().len() > 0);
                 assert!(!e.to_string().contains("panic"));
@@ -697,17 +697,17 @@ fn test_malformed_data_handling() {
 fn test_extreme_values() {
     // Test with maximum possible values
     let max_amount = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-    
+
     let log = create_transfer_log(
         "0xA0b86a33E6Fe17d67C8c086c6c4c0E3C8E3B7EC2",
         "0x742d35Cc6B8B4d1e8d37a1E5B0b4F8e8B7F4D2a1",
-        "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", 
+        "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
         max_amount
     );
-    
+
     let result = parse_erc20_transfer(&log);
     assert!(result.is_ok());
-    
+
     let transfer = result.unwrap();
     assert!(transfer.amount > BigInt::zero());
 }
@@ -735,7 +735,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -743,22 +743,22 @@ jobs:
         toolchain: stable
         override: true
         components: rustfmt, clippy
-        
+
     - name: Add WASM target
       run: rustup target add wasm32-unknown-unknown
-      
+
     - name: Cache cargo registry
       uses: actions/cache@v3
       with:
         path: ~/.cargo/registry
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-        
+
     - name: Run unit tests
       run: cargo test --lib
-      
+
     - name: Run clippy
       run: cargo clippy -- -D warnings
-      
+
     - name: Check formatting
       run: cargo fmt -- --check
 
@@ -766,44 +766,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Install Substreams CLI
       run: |
         # Install latest substreams CLI
         curl -sSL https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz | tar -xz
         sudo mv substreams /usr/local/bin/
-        
+
     - name: Download test fixtures
       run: |
         mkdir -p fixtures
         curl -L https://github.com/your-org/substreams-fixtures/releases/download/v1.0/ethereum-blocks.tar.gz | tar -xz -C fixtures/
-        
+
     - name: Build Substreams
       run: substreams build
-      
+
     - name: Run integration tests
       run: |
         substreams run -s 17000000 -t +100 map_transfers --network mainnet
-        
+
     - name: Run performance tests
       run: |
         time substreams run -s 17000000 -t +1000 map_transfers --production-mode --network mainnet
-        
+
   e2e-tests:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Setup test environment
       run: |
         docker-compose -f docker-compose.test.yml up -d
         sleep 30  # Wait for services to be ready
-        
+
     - name: Run end-to-end tests
       run: |
         cargo test --test e2e_tests
-        
+
     - name: Cleanup
       run: docker-compose -f docker-compose.test.yml down
 ```
@@ -849,7 +849,7 @@ echo "✅ All pre-commit checks passed!"
 ✅ **Start with unit tests** - Test individual functions first
 ✅ **Use real blockchain data** - Edge cases are everywhere
 ✅ **Test error conditions** - Malformed data, network issues, etc.
-✅ **Benchmark performance** - Measure before optimizing  
+✅ **Benchmark performance** - Measure before optimizing
 ✅ **Test reorg scenarios** - Blockchain reorganizations happen
 ✅ **Automate testing** - CI/CD pipeline for every change
 ✅ **Test at multiple scales** - Single blocks to large ranges
@@ -889,5 +889,5 @@ echo "✅ All pre-commit checks passed!"
 ## Getting Help
 
 * [Substreams Discord](https://discord.gg/streamingfast)
-* [Testing Documentation](https://substreams.streamingfast.io/documentation/develop/test)  
+* [Testing Documentation](https://substreams.streamingfast.io/documentation/develop/test)
 * [GitHub Issues](https://github.com/streamingfast/substreams/issues)

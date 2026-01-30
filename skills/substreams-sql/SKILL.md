@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.0.1
+  version: 1.0.2
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -233,7 +233,7 @@ CREATE TABLE blocks (
     size_bytes BIGINT
 );
 
--- Transactions table  
+-- Transactions table
 CREATE TABLE transactions (
     hash VARCHAR(66) PRIMARY KEY,
     block_number BIGINT REFERENCES blocks(number),
@@ -307,7 +307,7 @@ pub fn db_out(block: Block) -> Result<DatabaseChanges, Error> {
             if is_erc20_transfer(log) {
                 let transfer = decode_transfer(log);
                 let transfer_id = format!("{}-{}", tx_hash, log_idx);
-                
+
                 tables
                     .create_row("erc20_transfers", transfer_id)
                     .set("tx_hash", &tx_hash)
@@ -386,7 +386,7 @@ CREATE INDEX idx_logs_data ON transaction_logs USING GIN (data);
 ```sql
 -- Daily transfer volumes
 CREATE MATERIALIZED VIEW daily_transfer_volumes AS
-SELECT 
+SELECT
     DATE(to_timestamp(timestamp)) as date,
     contract_address,
     COUNT(*) as transfer_count,
@@ -421,7 +421,7 @@ SET max_parallel_workers = 8;
    ```sql
    -- Use NUMERIC for big integers (token amounts)
    amount NUMERIC(78,0)  -- Not BIGINT
-   
+
    -- Use proper VARCHAR sizes
    address VARCHAR(42)   -- Ethereum addresses
    hash VARCHAR(66)      -- Transaction hashes
@@ -431,7 +431,7 @@ SET max_parallel_workers = 8;
    ```sql
    -- Query-specific indexes
    CREATE INDEX idx_transfers_token_date ON erc20_transfers(contract_address, block_number);
-   
+
    -- Partial indexes for active data
    CREATE INDEX idx_active_balances ON token_balances(address) WHERE balance > 0;
    ```
@@ -439,9 +439,9 @@ SET max_parallel_workers = 8;
 3. **Use constraints**:
    ```sql
    -- Data validation
-   ALTER TABLE erc20_transfers ADD CONSTRAINT check_positive_amount 
+   ALTER TABLE erc20_transfers ADD CONSTRAINT check_positive_amount
        CHECK (amount >= 0);
-   
+
    -- Foreign keys for referential integrity
    ALTER TABLE erc20_transfers ADD CONSTRAINT fk_transaction
        FOREIGN KEY (tx_hash) REFERENCES transactions(hash);
@@ -514,7 +514,7 @@ CREATE TABLE erc20_transfers (
     to_addr String,
     amount UInt256,
     timestamp DateTime,
-    
+
     -- Pre-computed fields for analytics
     hour DateTime,
     date Date
@@ -573,7 +573,7 @@ CREATE TABLE erc20_transfers_distributed AS erc20_transfers
 ENGINE = Distributed('cluster', 'default', 'erc20_transfers', rand());
 
 -- Partition pruning
-SELECT * FROM erc20_transfers 
+SELECT * FROM erc20_transfers
 WHERE date >= '2024-01-01' AND date < '2024-02-01';
 ```
 
@@ -581,7 +581,7 @@ WHERE date >= '2024-01-01' AND date < '2024-02-01';
 ```sql
 -- Use projection for common query patterns
 ALTER TABLE erc20_transfers ADD PROJECTION daily_stats (
-    SELECT 
+    SELECT
         date,
         contract_address,
         sum(amount),
@@ -615,11 +615,11 @@ Materialized views provide pre-computed query results that update automatically 
 ```sql
 -- Token holder counts
 CREATE MATERIALIZED VIEW token_holder_counts AS
-SELECT 
+SELECT
     token_address,
     COUNT(DISTINCT address) as holder_count,
     SUM(balance) as total_supply
-FROM token_balances 
+FROM token_balances
 WHERE balance > 0
 GROUP BY token_address;
 
@@ -652,13 +652,13 @@ AS SELECT
     market_cap
 FROM (
     -- Complex price calculation logic
-    SELECT 
+    SELECT
         t.contract_address as token_address,
         toStartOfMinute(t.timestamp) as timestamp,
         calculatePrice(t.amount, p.eth_price) as price_usd,
         sum(t.amount) OVER (
-            PARTITION BY t.contract_address 
-            ORDER BY t.timestamp 
+            PARTITION BY t.contract_address
+            ORDER BY t.timestamp
             RANGE BETWEEN INTERVAL 24 HOUR PRECEDING AND CURRENT ROW
         ) as volume_24h
     FROM erc20_transfers t
@@ -741,7 +741,7 @@ pub fn extract_events(block: Block) -> Result<RawEvents, Error> {
     extract_raw_blockchain_events(block)
 }
 
-#[substreams::handlers::map]  
+#[substreams::handlers::map]
 pub fn enrich_events(raw_events: RawEvents) -> Result<EnrichedEvents, Error> {
     // Stage 2: Enrich with metadata, decode parameters
     enrich_with_token_metadata(raw_events)
@@ -791,13 +791,13 @@ EXPLAIN ANALYZE SELECT * FROM erc20_transfers WHERE contract_address = '0x...';
 
 -- Check index usage
 SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read, idx_tup_fetch
-FROM pg_stat_user_indexes 
+FROM pg_stat_user_indexes
 ORDER BY idx_scan DESC;
 
 -- ClickHouse query profiling
-SELECT * FROM system.query_log 
-WHERE type = 'QueryFinish' 
-ORDER BY event_time DESC 
+SELECT * FROM system.query_log
+WHERE type = 'QueryFinish'
+ORDER BY event_time DESC
 LIMIT 10;
 ```
 
@@ -825,21 +825,21 @@ Cursor state is automatically persisted in the `cursors` table created by `subst
 **Key Metrics**:
 ```sql
 -- PostgreSQL monitoring
-SELECT 
+SELECT
     schemaname,
     tablename,
     n_tup_ins as inserts,
     n_tup_upd as updates,
     n_tup_del as deletes
-FROM pg_stat_user_tables 
+FROM pg_stat_user_tables
 ORDER BY n_tup_ins DESC;
 
--- ClickHouse monitoring  
-SELECT 
+-- ClickHouse monitoring
+SELECT
     table,
     sum(rows) as total_rows,
     sum(bytes_on_disk) as size_bytes
-FROM system.parts 
+FROM system.parts
 WHERE active = 1
 GROUP BY table
 ORDER BY size_bytes DESC;
@@ -866,7 +866,7 @@ echo "Database is healthy, lag: $LAG blocks"
 ## Resources
 
 * [Database Changes Documentation](./references/database-changes.md)
-* [PostgreSQL Best Practices](./references/postgresql-patterns.md)  
+* [PostgreSQL Best Practices](./references/postgresql-patterns.md)
 * [ClickHouse Optimization Guide](./references/clickhouse-patterns.md)
 * [Schema Design Patterns](./references/schema-patterns.md)
 
