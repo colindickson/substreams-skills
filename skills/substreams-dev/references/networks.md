@@ -174,8 +174,17 @@ substreams run -e mainnet.eth.streamingfast.io:443 substreams.yaml module_name
 ## Network Configuration
 
 ### Authentication
-All networks require authentication:
+All networks require authentication.
 
+**CLI Authentication (Recommended):**
+```bash
+substreams auth  # Interactive authentication, stores token locally
+```
+
+**Quick Token Generation:**
+Visit [thegraph.market/auth/substreams-devenv](https://thegraph.market/auth/substreams-devenv) to generate a JWT token from your API key directly in the browser.
+
+**Environment Variables (Alternative):**
 ```bash
 # Recommended: API key
 export SUBSTREAMS_API_KEY="your-api-key"
@@ -204,9 +213,9 @@ export SUBSTREAMS_API_TOKEN="your-api-token"
 
 ## Getting Access
 
-1. Sign up at [thegraph.market](https://thegraph.market)
-2. Create API key
-3. Configure authentication
+1. Sign up at [thegraph.market/auth/signup](https://thegraph.market/auth/signup)
+2. Create an API key in your dashboard
+3. Run `substreams auth` to authenticate (or set `SUBSTREAMS_API_KEY` environment variable)
 4. Start building!
 
 For enterprise needs or additional networks, contact [StreamingFast support](mailto:support@streamingfast.io).

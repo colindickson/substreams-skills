@@ -94,12 +94,24 @@ fn main() {
 
 ### Authentication
 
-Running `substreams run` against hosted endpoints requires authentication:
+Running `substreams run` against hosted endpoints requires authentication. Get your API key from [The Graph Market](https://thegraph.market) - sign up at [thegraph.market/auth/signup](https://thegraph.market/auth/signup).
 
+**CLI Authentication (Recommended):**
 ```bash
-substreams auth  # Interactive authentication
-# Or set SUBSTREAMS_API_TOKEN environment variable
+substreams auth  # Interactive authentication, stores token locally
 ```
+
+**Quick Token Generation:**
+Visit [thegraph.market/auth/substreams-devenv](https://thegraph.market/auth/substreams-devenv) to generate a JWT token from your API key directly in the browser.
+
+**Environment Variables (Alternative):**
+```bash
+export SUBSTREAMS_API_KEY="your-api-key"
+# Or set bearer token directly
+export SUBSTREAMS_API_TOKEN="your-jwt-token"
+```
+
+The `substreams auth` command handles token exchange and local storage automatically, making it the easiest way to get started.
 
 ## Common Workflows
 
