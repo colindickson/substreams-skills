@@ -42,18 +42,26 @@ Expert knowledge for testing Substreams applications at all levels. Complete tes
 
 ### Claude Code (Recommended)
 
+To install the plugin (which pulls the skills):
+
 ```bash
 claude plugin marketplace add https://github.com/streamingfast/substreams-skills
+claude plugin install substreams-dev
 ```
 
-Then install the skills:
+Or use the `/plugin` interactive flow directly within `claude`.
 
-1. Run `/plugin` to open the plugin manager
-2. Go to the **Discover** tab
-3. Find and install the desired skills (e.g., `substreams-dev`, `substreams-sql`)
-4. Restart Claude instance(s) (otherwise skills are not properly re-discovered)
+Validate that everything works properly by running `/skills` within `claude`, see example output:
 
-After installation, Claude will automatically use the Substreams expertise when working on relevant projects.
+```
+...
+
+Plugin skills (plugin)
+substreams-dev · ~58 description tokens
+substreams-sink · ~57 description tokens
+substreams-sql · ~48 description tokens
+substreams-testing · ~43 description tokens
+```
 
 **Alternative: Local Development**
 
