@@ -589,7 +589,7 @@ fn db_out(events: Events) -> Result<DatabaseChanges, substreams::errors::Error> 
 **Important Notes:**
 - The correct import path is `substreams_database_change::pb::sf::substreams::sink::database::v1::DatabaseChanges` (not the deprecated `pb::database::DatabaseChanges`)
 - Ordinals are automatically managed by the `Tables` struct — no manual management needed
-- Cargo dependency: `substreams-database-change = "4"`
+- Cargo dependency: `substreams-database-change = "4"` (latest: 4.0.0)
 
 ## Testing Patterns
 

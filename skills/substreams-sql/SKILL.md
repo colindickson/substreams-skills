@@ -16,7 +16,26 @@ Expert assistant for building SQL database sinks from Substreams data - transfor
 
 ## Prerequisites
 
-- **substreams-sink-sql**: Required CLI tool for database sink workflows. Install from [releases](https://github.com/streamingfast/substreams-sink-sql/releases).
+### Installing substreams-sink-sql
+
+The `substreams-sink-sql` CLI tool is required for database sink workflows.
+
+**Homebrew (macOS/Linux):**
+```bash
+brew install streamingfast/tap/substreams-sink-sql
+```
+
+**Binary Release:**
+Download from [GitHub Releases](https://github.com/streamingfast/substreams-sink-sql/releases)
+
+**Docker:**
+```bash
+docker pull ghcr.io/streamingfast/substreams-sink-sql:latest
+# Or specific version
+docker pull ghcr.io/streamingfast/substreams-sink-sql:v4.12.0
+```
+
+> **Note:** Do NOT use `substreams-sink-postgres` - this is an old deprecated name. The current tool is `substreams-sink-sql` which supports both PostgreSQL and ClickHouse.
 
 ## Core Concepts
 
@@ -121,7 +140,7 @@ sink:
 **Cargo.toml dependency** (v4 with delta updates support):
 ```toml
 [dependencies]
-substreams-database-change = "4"
+substreams-database-change = "4"  # Latest: 4.0.0
 ```
 
 **Running the sink** (DSN is passed on the command line, not in the manifest):

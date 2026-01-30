@@ -207,6 +207,19 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/my_substreams.wasm
 ```
 
+**WASM Bindgen Shims** (for `solana_program`, `alloy`, `chrono`, etc.):
+
+Some Rust libraries create WebAssembly bindgen imports when compiled to `wasm32-unknown-unknown`. To use these libraries, enable the shims feature:
+
+```yaml
+binaries:
+  default:
+    type: wasm/rust-v1+wasm-bindgen-shims
+    file: ./target/wasm32-unknown-unknown/release/my_substreams.wasm
+```
+
+This allows compilation but the shims don't implement underlying functionality - avoid calling their special import functions at runtime. See [WASM compatibility docs](https://docs.substreams.dev/reference-material/change-log#how-to-use-solana_program-or-alloy-ether-rs) for details.
+
 **Network configuration**:
 ```yaml
 network: mainnet
@@ -231,11 +244,12 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Core Substreams dependencies - VERSIONS MUST BE COMPATIBLE
-substreams = "0.7"
-substreams-ethereum = "0.11"
+# Check https://crates.io for latest versions
+substreams = "0.7"              # Latest: 0.7.3
+substreams-ethereum = "0.11"    # Latest: 0.11.1
 
 # For SQL sink output (DatabaseChanges)
-substreams-database-change = "4"
+substreams-database-change = "4"  # Latest: 4.0.0
 
 # Protobuf serialization
 prost = "0.13"
@@ -250,7 +264,7 @@ num-bigint = "0.4"
 ethabi = "18"
 
 [build-dependencies]
-substreams-ethereum = "0.11"
+substreams-ethereum = "0.11"    # Latest: 0.11.1
 
 [profile.release]
 lto = true
@@ -270,6 +284,22 @@ strip = "debuginfo"
 - Missing `ethabi`: Required by ABI-generated code but not always obvious
 - Version mismatch: Mixing 0.6/0.7 substreams versions causes linking errors
 - If you get "symbol multiply defined" errors, run `rm -rf target && substreams build`
+
+**WASM-Incompatible Crates:**
+
+Some crates enable `wasm-bindgen` features by default on wasm32 targets, causing runtime errors like:
+```
+unknown import: `__wbindgen_placeholder__::__wbindgen_describe` has not been defined
+```
+
+**Solutions:**
+1. **Use `wasm/rust-v1+wasm-bindgen-shims`** in your manifest's binary type (see above)
+2. **Disable default features** for problematic crates:
+   ```toml
+   chrono = { version = "0.4", default-features = false }
+   ```
+
+Common crates requiring attention: `chrono`, `solana_program`, `alloy`, `ethers-rs`
 
 ### Map Handler Example
 

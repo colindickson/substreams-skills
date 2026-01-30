@@ -26,9 +26,11 @@ A Substreams sink is an application that:
 - **Processes** the data into your destination (database, queue, etc.)
 
 > **Note:** Before building a custom sink, consider using existing solutions:
-> - **[substreams-sink-sql](https://github.com/streamingfast/substreams-sink-sql)** - For PostgreSQL and ClickHouse. Handles cursor management, reorgs, batching, and schema management out of the box.
+> - **[substreams-sink-sql](https://github.com/streamingfast/substreams-sink-sql)** - For PostgreSQL and ClickHouse. Handles cursor management, reorgs, batching, and schema management out of the box. Install via `brew install streamingfast/tap/substreams-sink-sql` or [download binaries](https://github.com/streamingfast/substreams-sink-sql/releases).
 > - **[substreams-sink-kv](https://github.com/streamingfast/substreams-sink-kv)** - For key-value stores.
 > - **[substreams-sink-files](https://github.com/streamingfast/substreams-sink-files)** - For file-based outputs (JSON, CSV, Parquet).
+>
+> **Important:** Do NOT use `substreams-sink-postgres` - this is a deprecated name. Use `substreams-sink-sql` which supports both PostgreSQL and ClickHouse.
 >
 > The examples in this guide use database code for illustration purposes. For production SQL database sinks, `substreams-sink-sql` is highly recommended as it solves cursor persistence, reorg handling, batching, and many edge cases already.
 
