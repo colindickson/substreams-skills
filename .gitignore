@@ -9,6 +9,9 @@ Thumbs.db
 *.swo
 *~
 
+build/
+dist/
+
 # Logs
 *.log
 
