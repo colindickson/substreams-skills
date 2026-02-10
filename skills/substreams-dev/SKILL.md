@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.0.2
+  version: 1.0.3
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -186,7 +186,7 @@ See [references/manifest-spec.md](./references/manifest-spec.md) for complete sp
 specVersion: v0.1.0
 package:
   name: my-substreams
-  version: v1.0.0
+  version: 1.0.3
   description: Description of what this substreams does
 ```
 
