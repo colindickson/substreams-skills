@@ -2,9 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
-
-## [v1.0.2](https://github.com/streamingfast/substreams-skills/releases/tag/v1.0.2)
+## v1.0.3
 
 ### Added
 
@@ -14,3 +12,7 @@ All notable changes to this project will be documented in this file.
   - Added documentation for automatic `__impl_<name>` testable function generation
   - Added documentation for `#[substreams::handlers::map(no_testable)]` opt-out attribute
 - Marked legacy wrapper function pattern (`_handler` functions) as deprecated in favor of `map!` macro
+
+## v1.0.2
+
+- Improved skills based on received feedback.
