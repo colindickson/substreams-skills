@@ -46,7 +46,57 @@ Test individual functions and modules in isolation.
 - ✅ Protobuf message construction
 - ✅ Helper functions and utilities
 
-**Test Structure**:
+**Recommended: Using `substreams::testing` Module (0.7.4+)**
+
+Starting with `substreams-rs` 0.7.4, use the built-in `substreams::testing` module with the `map!` macro:
+
+```rust
+use substreams::testing;
+
+#[substreams::handlers::map]
+pub fn all_events(block: Block) -> Result<EventList, Error> {
+    // Implementation directly in the handler - no wrapper needed
+    let events = block.logs()
+        .filter(|log| is_relevant_event(log))
+        .map(|log| parse_event(log))
+        .collect();
+    Ok(EventList { events })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use substreams::testing;
+
+    #[test]
+    fn test_all_events() {
+        let block = create_test_block();
+
+        // Use map! macro to invoke the handler directly
+        let result = testing::map!(all_events(block)).unwrap();
+
+        assert!(!result.events.is_empty());
+    }
+
+    #[test]
+    fn test_chained_handlers() {
+        let block = create_test_block();
+
+        // Chain multiple map calls
+        let all = testing::map!(all_events(block)).unwrap();
+        let filtered = testing::map!(filtered_events("type:transfer".to_string(), all)).unwrap();
+
+        assert!(filtered.events.iter().all(|e| e.event_type == "transfer"));
+    }
+}
+```
+
+**Key Benefits**:
+- Eliminates need for wrapper functions (no more `_handler` pattern)
+- Map handlers generate testable `__impl_<name>` functions automatically
+- Use `#[substreams::handlers::map(no_testable)]` to opt out if needed
+
+**Legacy Test Structure** (for older versions):
 ```rust
 #[cfg(test)]
 mod tests {

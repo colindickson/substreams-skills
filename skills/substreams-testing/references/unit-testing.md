@@ -11,6 +11,177 @@ Unit tests should be:
 - **Self-contained** - No external dependencies
 - **Comprehensive** - Cover edge cases and error conditions
 
+## Testing with `substreams::testing` Module (Recommended)
+
+Starting with `substreams-rs` version 0.7.4+, the crate provides built-in testing utilities that eliminate the need for manual wrapper functions.
+
+### Key Features
+
+- **Automatic testable functions**: Map handlers now generate testable `__impl_<name>` functions by default
+- **`map!` macro**: Invoke map handlers directly in tests without WASM compilation
+- **`clock()` function**: Create test clock instances for time-dependent logic
+
+### Using the `map!` Macro
+
+The `substreams::testing::map!` macro allows you to call map handlers directly in unit tests:
+
+```rust
+use substreams::testing;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_all_events() {
+        let block = create_test_block();
+
+        // Use map! macro to invoke the handler
+        let result = testing::map!(all_events(block)).unwrap();
+
+        assert!(!result.events.is_empty());
+    }
+
+    #[test]
+    fn test_filtered_events() {
+        let block = create_test_block();
+
+        // Chain multiple map calls
+        let all_events = testing::map!(all_events(block)).unwrap();
+        let filtered = testing::map!(filtered_events("type:transfer".to_string(), all_events));
+
+        assert!(filtered.is_ok());
+    }
+}
+```
+
+### Complete Example
+
+Here's a complete example showing the recommended testing pattern:
+
+```rust
+// src/lib.rs
+use substreams_ethereum::pb::eth::v2::Block;
+
+#[substreams::handlers::map]
+pub fn all_events(block: Block) -> Result<EventList, Error> {
+    // Implementation directly in the handler - no wrapper needed
+    let events = block.logs()
+        .filter(|log| is_relevant_event(log))
+        .map(|log| parse_event(log))
+        .collect();
+
+    Ok(EventList { events })
+}
+
+#[substreams::handlers::map]
+pub fn filtered_events(filter: String, events: EventList) -> Result<EventList, Error> {
+    let filtered = events.events
+        .into_iter()
+        .filter(|e| matches_filter(e, &filter))
+        .collect();
+
+    Ok(EventList { events: filtered })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use substreams::testing;
+
+    #[test]
+    fn test_all_events_extracts_transfers() {
+        let block = create_block_with_transfer();
+
+        let result = testing::map!(all_events(block)).unwrap();
+
+        assert_eq!(result.events.len(), 1);
+        assert_eq!(result.events[0].event_type, "transfer");
+    }
+
+    #[test]
+    fn test_filtered_events_by_type() {
+        let block = create_block_with_multiple_events();
+
+        let all = testing::map!(all_events(block)).unwrap();
+        let transfers = testing::map!(filtered_events("type:transfer".to_string(), all)).unwrap();
+
+        assert!(transfers.events.iter().all(|e| e.event_type == "transfer"));
+    }
+
+    #[test]
+    fn test_empty_block_returns_empty_events() {
+        let empty_block = Block::default();
+
+        let result = testing::map!(all_events(empty_block)).unwrap();
+
+        assert!(result.events.is_empty());
+    }
+}
+```
+
+### Using the `clock()` Function
+
+For modules that depend on block time, use the `clock()` helper:
+
+```rust
+use substreams::testing;
+
+#[test]
+fn test_time_dependent_logic() {
+    let clock = testing::clock();
+
+    // Use clock in your test
+    let result = process_with_time(data, clock);
+
+    assert!(result.is_ok());
+}
+```
+
+### Opting Out of Testable Functions
+
+If you don't want the automatic `__impl_<name>` function generation (e.g., for performance reasons in production), use the `no_testable` attribute:
+
+```rust
+#[substreams::handlers::map(no_testable)]
+pub fn my_handler(block: Block) -> Result<Output, Error> {
+    // This handler won't generate __impl_my_handler
+    // You'll need to use the legacy wrapper pattern for testing
+}
+```
+
+## Legacy Testing Pattern
+
+> **Note**: The pattern below is the legacy approach. For new projects using `substreams-rs` 0.7.4+, prefer the `substreams::testing::map!` macro described above.
+
+For older codebases or when using `no_testable`, you can use wrapper functions:
+
+```rust
+// Legacy pattern - wrapper function approach
+#[substreams::handlers::map]
+pub fn all_events(block: Block) -> Result<EventList, Error> {
+    _all_events(block)
+}
+
+/// _all_events is equal to [all_events] but exists only for unit testing purposes.
+pub fn _all_events(block: Block) -> Result<EventList, Error> {
+    // Actual implementation here
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_all_events() {
+        let block = create_test_block();
+        // Call the underscore-prefixed function directly
+        let result = _all_events(block).unwrap();
+        assert!(!result.events.is_empty());
+    }
+}
+```
+
 ## Setting Up Unit Tests
 
 ### Rust Test Configuration
