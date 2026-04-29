@@ -1,11 +1,11 @@
 ---
 name: substreams-sink-deploy
-description: Expert knowledge for running and deploying Substreams sinks. Use when piping a working Substreams to a destination (Postgres, ClickHouse, files, PubSub, webhooks, or a hosted/managed service). Covers sink CLI binaries, required output module shape, schema files, cursor management, reorgs, and production deployment patterns. Complements substreams-dev (build modules), substreams-sql (db_out patterns), and substreams-sink (SDK consumption).
+description: Use when the user wants to RUN, DEPLOY, or OPERATE a Substreams sink — i.e. take a built `.spkg` and pipe its data into a destination. Triggers on "run substreams-sink-sql", "deploy my substreams to Postgres", "set up substreams-sink-files", "publish to PubSub", "stream to S3", "deploy hosted sink", "start the sink binary". Covers sink CLI binaries (substreams-sink-sql, -files, -pubsub, -webhook), schema setup, cursor management, reorg handling, hosted vs self-hosted decision, batch flush tuning, and common pitfalls. Distinct from substreams-sql (which covers BUILDING the db_out Rust module — its proto, table mappings, and Rust APIs). Use this skill AFTER the .spkg is already built.
 license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 0.1.0
+  version: 0.1.1
   author: StreamingFast
   documentation: https://docs.substreams.dev/how-to-guides/sinks
 ---
@@ -395,9 +395,55 @@ Reorg buffer. Set `--undo-buffer-size=12` or smaller if you accept some rollback
 
 ### 5. `substreams-sink-sql` says "auth required" even with API key set
 
-The sink reads `SUBSTREAMS_API_KEY` from env. If you're using `--api-token-envvar=OTHER_VAR` make sure the env var name matches. JWT mode requires `SUBSTREAMS_API_TOKEN` instead.
+The sink reads `SUBSTREAMS_API_KEY` from env (this is the correct var name — NOT `SUBSTREAMS_API_TOKEN`). If you're using `--api-key-envvar=OTHER_VAR` make sure the env var name matches. JWT mode (older accounts) requires `SUBSTREAMS_API_TOKEN` instead.
 
-### 6. PubSub "permission denied"
+### 6. Sink ran but no rows landed — `--batch-block-flush-interval` too large for short ranges
+
+**Default is 1000.** If you process fewer than 1000 blocks (e.g. an eval task with `+100`), the sink batches everything in memory and only commits at process termination — and only the partial completion-callback flush fires. Net result: one partial flush, most blocks lost.
+
+```bash
+# Wrong (default 1000) — 100 blocks won't commit
+substreams-sink-sql run "$DSN" "$EP" ./pkg.spkg db_out "18000000:+100"
+
+# Right — flush every block for short ranges
+substreams-sink-sql run "$DSN" "$EP" ./pkg.spkg db_out "18000000:+100" \
+    --batch-block-flush-interval=1
+```
+
+**Production**: leave default `1000` (or set higher for very high-throughput chains like Solana). Tune down only for testing or very low-volume modules.
+
+### 7. "substreams sent a single primary key, but our sql table has a composite primary key" — PK wire format mismatch
+
+Sink v4+ enforces strict matching between `schema.sql` and the wire-format PK from your `db_out` Rust module:
+
+| Your `schema.sql` declares                                  | Your Rust code MUST send                          |
+|-------------------------------------------------------------|---------------------------------------------------|
+| `PRIMARY KEY (id)` (single column)                          | `tables.create_row("t", &id)` — single string    |
+| `PRIMARY KEY (tx_hash, log_index)` (composite, 2+ columns)  | `tables.create_row("t", [("tx_hash", &h), ("log_index", li)])` — slice of (col, val) tuples |
+
+If you see this error: either rewrite the Rust to send a tuple slice, OR change the schema to a single-column synthetic PK (`id VARCHAR PRIMARY KEY`) and concatenate fields in Rust (`format!("{}-{}", tx_hash, log_index)`).
+
+For build-side patterns → `substreams-sql` skill.
+
+### 8. Module hash mismatch on restart after schema/code changes
+
+You changed your `.spkg` and now the sink errors:
+```
+module hash mismatch: cursor was for hash X, current module is hash Y
+```
+
+The cursor pins a specific module-hash to detect drift. Two options:
+```bash
+# Restart from the cursor's block, ignoring hash change (data may be inconsistent)
+substreams-sink-sql run ... --on-module-hash-mismatch=warn
+
+# Or reset the cursor — sink starts from scratch
+substreams-sink-sql run ... --on-module-hash-mismatch=ignore
+```
+
+For accuracy, prefer wiping the destination and re-running rather than `ignore` — partial data from the old module hash mixed with new data is a debugging nightmare.
+
+### 9. PubSub "permission denied"
 
 GCP service account needs `pubsub.publisher` on the topic. Check `gcloud auth application-default login` is set, OR `GOOGLE_APPLICATION_CREDENTIALS` points at a key file with the right role.
 
