@@ -1,6 +1,6 @@
 ---
 name: substreams-sink-deploy
-description: Use when the user wants to RUN, DEPLOY, or OPERATE a Substreams sink — i.e. take a built `.spkg` and pipe its data into a destination. Triggers on "run substreams-sink-sql", "deploy my substreams to Postgres", "set up substreams-sink-files", "publish to PubSub", "stream to S3", "deploy hosted sink", "start the sink binary". Covers sink CLI binaries (substreams-sink-sql, -files, -pubsub, -webhook), schema setup, cursor management, reorg handling, hosted vs self-hosted decision, batch flush tuning, and common pitfalls. Distinct from substreams-sql (which covers BUILDING the db_out Rust module — its proto, table mappings, and Rust APIs). Use this skill AFTER the .spkg is already built.
+description: Use when the user wants to RUN, DEPLOY, or OPERATE a Substreams sink — i.e. take a built `.spkg` and pipe its data into a destination. Triggers on "run substreams-sink-sql", "deploy my substreams to Postgres", "set up substreams-sink-files", "publish to PubSub", "stream to S3", "deploy hosted sink", "start the sink binary". Covers sink CLIs and commands (substreams-sink-sql, -files, -pubsub, and `substreams sink webhook`), schema setup, cursor management, reorg handling, hosted vs self-hosted decision, batch flush tuning, and common pitfalls. Distinct from substreams-sql (which covers BUILDING the db_out Rust module — its proto, table mappings, and Rust APIs). Use this skill AFTER the .spkg is already built.
 license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
@@ -50,7 +50,7 @@ Where does the data need to land?
 ├── Custom application code
 │   └── Go / JS / Rust SDK       →  see substreams-sink skill (no binary, app-level)
 │
-└── Just JSONL on stdout
+└── Just JSONL output (typically files)
     └── substreams sink protojson  (built-in, zero install — for testing)
 ```
 
@@ -260,14 +260,16 @@ output:
 The `Publish` proto holds the bytes to publish + topic attributes. Your map module wraps your domain proto into `Publish`.
 
 ```rust
-use substreams_sink_pubsub::pb::sf::substreams::sink::pubsub::v1::Publish;
+use std::collections::HashMap;
+use prost::Message as ProstMessage;
+use substreams_sink_pubsub::pb::sf::substreams::sink::pubsub::v1::{Message, Publish};
 
 #[substreams::handlers::map]
 fn map_publish(block: Block) -> Result<Publish, Error> {
     let my_event = MyEvent { /* ... */ };
     let bytes = my_event.encode_to_vec();
     Ok(Publish {
-        messages: vec![ Message { data: bytes, attributes: HashMap::new() }],
+        messages: vec![Message { data: bytes, attributes: HashMap::new() }],
     })
 }
 ```
