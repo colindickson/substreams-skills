@@ -500,7 +500,7 @@ Kill -9 the sink mid-batch. Restart. Sink reads cursor → resumes at last commi
 ```bash
 # Prereqs
 export SUBSTREAMS_API_KEY=server_xxx
-export DSN="postgresql://user:pass@localhost:5432/mydb?sslmode=disable"
+export DSN="psql://user:pass@localhost:5432/mydb?sslmode=disable"
 
 # 0. Get a working substreams package with a db_out module
 #    (see substreams-sql skill for the build side)
