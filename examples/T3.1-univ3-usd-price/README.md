@@ -10,7 +10,7 @@ Track Uniswap V3 swaps. For each swap, compute USD price using sqrtPriceX96 + to
 
 ## Prompt
 
-(See full prompt in eval/, ~50 lines including the `(sqrtPriceX96 / 2^96)^2 * 10^(decimals0 - decimals1)` formula and stable-coin reference token list.)
+Multi-paragraph prompt including the `(sqrtPriceX96 / 2^96)^2 * 10^(decimals0 - decimals1)` formula and a stable-coin reference token list for USD-price detection. Not reproduced here.
 
 ## What the skill provided
 

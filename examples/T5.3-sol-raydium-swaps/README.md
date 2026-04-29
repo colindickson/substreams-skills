@@ -12,7 +12,7 @@ Raydium uses Anchor — `swap` and `swap_v2` instructions are dispatched by 8-by
 
 ## Prompt
 
-(Full prompt in eval/ — describes the swap instruction discriminator + data layout.)
+Prompt described the swap instruction discriminator derivation and data layout. Not reproduced here.
 
 ## What the skill provided
 

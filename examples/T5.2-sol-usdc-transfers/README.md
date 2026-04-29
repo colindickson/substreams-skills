@@ -13,7 +13,7 @@ SPL Token program: `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`
 
 ## Prompt
 
-(Full prompt in eval/ — covers `Transfer` vs `TransferChecked` instructions and mint resolution.)
+Prompt covered `Transfer` vs `TransferChecked` instruction discrimination and mint-account resolution. Not reproduced here.
 
 ## What the skill provided
 

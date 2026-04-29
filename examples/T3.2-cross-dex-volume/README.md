@@ -16,7 +16,6 @@ Multi-paragraph prompt with a strict entity schema:
 - Subsequent writes = `OPERATION_UPDATE` with only `volumeToken1`
 - `initialBlock: 18000000` (test range, not protocol genesis)
 
-(Full prompt in eval/.)
 
 ## What the skill provided
 

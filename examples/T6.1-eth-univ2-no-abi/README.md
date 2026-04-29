@@ -16,6 +16,8 @@ Index Swap events on the USDC-ETH Uniswap V2 pair (`0xB4e16d0168e52d35CaCD2c6185
 >
 > For each Swap event, emit: tx hash, log index, sender, to, amount0_in/out, amount1_in/out, block number.
 
+(`context/UniswapV2Pair.sol` was supplied as task context during evaluation; it is not committed to this repo.)
+
 ## What the skill provided
 
 - Raw topic-match decoding pattern (no `abigen` required for a single well-known event)

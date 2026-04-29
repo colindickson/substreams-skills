@@ -16,8 +16,6 @@ Track every Uniswap V2 swap. For each swap, include pool address, token0/token1 
 >
 > Token metadata (symbol, decimals) should be cached — don't re-fetch for the same token across blocks. Amounts must be human-readable (divided by `10^decimals`), not raw wei.
 
-(Full prompt: `prompt.md` in eval/ — includes Swap event signature + factory address.)
-
 ## What the skill provided
 
 - ABI generation via `build.rs` + `substreams-ethereum-abigen` (writes `src/abi/*.rs`)

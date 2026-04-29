@@ -18,7 +18,7 @@ This is operational, not Rust-coding — the skill covers CLI arg order, DSN sch
 
 ## Prompt
 
-(Full prompt in eval/ — supplies the `.spkg` path, Postgres credentials, endpoint, expected verify query.)
+Prompt supplied the `.spkg` path, Postgres credentials, endpoint URL, and expected verify query. Not reproduced here.
 
 ## What the skill provided
 
