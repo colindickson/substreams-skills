@@ -142,12 +142,15 @@ clickhouse://default:pass@host:9000/dbname
 substreams-sink-sql setup "$DSN" ./my-substreams.spkg
 
 # 2. Run the sink (long-running process)
-#    CLI signature: substreams-sink-sql run <DSN> <manifest> [<module_name>] [<block_range>] -e <endpoint>
+#    CLI signature: substreams-sink-sql run <DSN> <manifest> [<module_name>] [<block_range>] [-e <endpoint>]
+#    -e/--endpoint is optional if the .spkg embeds a network/endpoint; required otherwise.
 #    Module name is auto-inferred from the .spkg if a single sink module exists.
 substreams-sink-sql run "$DSN" \
     ./my-substreams.spkg \
     "12000000:+1000000" \
     -e "https://mainnet.eth.streamingfast.io:443"
+# Minimal (endpoint auto-derived from .spkg network config):
+# substreams-sink-sql run "$DSN" ./my-substreams.spkg "12000000:+1000000"
 ```
 
 Required env: `SUBSTREAMS_API_KEY` set to your StreamingFast API key.
@@ -409,7 +412,7 @@ The sink reads `SUBSTREAMS_API_KEY` from env (this is the correct var name — N
 
 ### 6. Sink ran but no rows landed — `--batch-block-flush-interval` too large for short ranges
 
-**Default is 1000.** If you process fewer than 1000 blocks (e.g. an eval task with `+100`), the sink batches everything in memory and only commits at process termination — and only the partial completion-callback flush fires. Net result: one partial flush, most blocks lost.
+**Default is 1000.** If you process fewer than 1000 blocks (e.g. an eval task with `+100`), the sink may keep the batch in memory until either the interval is reached or the process exits cleanly and performs a final partial flush. Net result: you may see no rows during the run, and short test ranges can be misleading unless you lower the flush interval.
 
 ```bash
 # Wrong (default 1000) — 100 blocks won't commit
@@ -473,7 +476,7 @@ substreams-sink-sql run "$DSN" ./pkg.spkg "12000000:18000000" -e "$EP" --workers
 substreams-sink-sql run "$DSN" ./pkg.spkg "18000000:" -e "$EP" --workers=1
 ```
 
-For files sink: same pattern, single command `--start-block=12000000 --stop-block=18000000` then a separate live run.
+For files sink: same positional range pattern — `"12000000:18000000"` for backfill, `"18000000:"` for live.
 
 ### Monitoring
 
