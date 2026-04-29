@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 0.1.2
+  version: 0.1.3
   author: StreamingFast
   documentation: https://docs.substreams.dev/how-to-guides/sinks
 ---
@@ -122,12 +122,18 @@ substreams-sink-sql generate <DSN> ./my-substreams.spkg <module_name>
 
 ### DSN format
 
+The sink accepts these schemes only — `postgresql://` is **rejected** by v4.x:
+
 ```bash
 # Postgres
-postgresql://user:pass@host:5432/dbname?sslmode=disable
+psql://user:pass@host:5432/dbname?sslmode=disable
+postgres://user:pass@host:5432/dbname?sslmode=disable     # alias
 
 # ClickHouse
 clickhouse://default:pass@host:9000/dbname
+
+# Parquet (writes to local files / object storage)
+parquet:///abs/path/output/
 ```
 
 ### Setup → Run flow
