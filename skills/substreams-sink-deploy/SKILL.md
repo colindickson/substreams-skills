@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 0.1.1
+  version: 0.1.2
   author: StreamingFast
   documentation: https://docs.substreams.dev/how-to-guides/sinks
 ---
@@ -137,14 +137,17 @@ clickhouse://default:pass@host:9000/dbname
 substreams-sink-sql setup "$DSN" ./my-substreams.spkg
 
 # 2. Run the sink (long-running process)
+#    CLI signature: substreams-sink-sql run <DSN> <manifest> [<block_range>] -e <endpoint>
+#    Module name is auto-inferred from the .spkg if a single sink module exists.
 substreams-sink-sql run "$DSN" \
-    "https://mainnet.eth.streamingfast.io:443" \
     ./my-substreams.spkg \
-    db_out \
-    "12000000:+1000000"        # block range (start:stop, "+1000000" = +N blocks from start)
+    "12000000:+1000000" \
+    -e "https://mainnet.eth.streamingfast.io:443"
 ```
 
 Required env: `SUBSTREAMS_API_KEY` set to your StreamingFast API key.
+
+> **CLI arg order matters and is non-obvious.** Endpoint is a `-e/--endpoint` flag, NOT positional. The module name is positional but optional — only required if your `.spkg` has multiple sink-compatible output modules (rare). Block range syntax: `START:STOP` or `START:+N` for N blocks forward, or omit STOP for open-ended live tailing.
 
 ### Two schema mapping modes
 
@@ -403,10 +406,10 @@ The sink reads `SUBSTREAMS_API_KEY` from env (this is the correct var name — N
 
 ```bash
 # Wrong (default 1000) — 100 blocks won't commit
-substreams-sink-sql run "$DSN" "$EP" ./pkg.spkg db_out "18000000:+100"
+substreams-sink-sql run "$DSN" ./pkg.spkg "18000000:+100" -e "$EP"
 
 # Right — flush every block for short ranges
-substreams-sink-sql run "$DSN" "$EP" ./pkg.spkg db_out "18000000:+100" \
+substreams-sink-sql run "$DSN" ./pkg.spkg "18000000:+100" -e "$EP" \
     --batch-block-flush-interval=1
 ```
 
@@ -457,10 +460,10 @@ For initial load of millions of blocks then continuous tailing:
 
 ```bash
 # 1. Backfill (bounded range, parallel-friendly with --workers=N)
-substreams-sink-sql run "$DSN" "$EP" ./pkg.spkg db_out "12000000:18000000" --workers=8
+substreams-sink-sql run "$DSN" ./pkg.spkg "12000000:18000000" -e "$EP" --workers=8
 
-# 2. Live (start = stop block of backfill, "+0" = open-ended)
-substreams-sink-sql run "$DSN" "$EP" ./pkg.spkg db_out "18000000:" --workers=1
+# 2. Live (start = stop block of backfill, omit stop for open-ended)
+substreams-sink-sql run "$DSN" ./pkg.spkg "18000000:" -e "$EP" --workers=1
 ```
 
 For files sink: same pattern, single command `--start-block=12000000 --stop-block=18000000` then a separate live run.
@@ -505,10 +508,9 @@ substreams-sink-sql setup "$DSN" ./erc20.spkg
 
 # 3. Run sink (foreground; use systemd/docker for production)
 substreams-sink-sql run "$DSN" \
-    "https://mainnet.eth.streamingfast.io:443" \
     ./erc20.spkg \
-    db_out \
     "12000000:+10000" \
+    -e "https://mainnet.eth.streamingfast.io:443" \
     --metrics-listen-addr=:9100
 
 # 4. Query
