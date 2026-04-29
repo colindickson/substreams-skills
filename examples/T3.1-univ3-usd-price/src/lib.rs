@@ -1,5 +1,13 @@
 mod abi;
-mod pb;
+mod pb {
+    pub mod uniswap {
+        pub mod v3 {
+            pub mod swaps {
+                include!(concat!(env!("OUT_DIR"), "/uniswap.v3.swaps.rs"));
+            }
+        }
+    }
+}
 
 use std::collections::HashSet;
 

@@ -16,6 +16,9 @@ prost = "0.13"
 prost-types = "0.13"
 hex = "0.4"
 
+[build-dependencies]
+prost-build = "0.13"
+
 [profile.release]
 lto = true
 opt-level = "s"

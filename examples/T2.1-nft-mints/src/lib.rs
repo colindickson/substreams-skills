@@ -1,4 +1,12 @@
-mod pb;
+mod pb {
+    pub mod nft {
+        pub mod mints {
+            pub mod v1 {
+                include!(concat!(env!("OUT_DIR"), "/nft.mints.v1.rs"));
+            }
+        }
+    }
+}
 
 use substreams::errors::Error;
 use substreams_ethereum::pb::eth::v2::Block;

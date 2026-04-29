@@ -1,7 +1,7 @@
 # T7.1 Deployment Notes — sonnet-4-6 / 2026-04-29
 
 ## Skill Discoverability
-`substreams:substreams-sink-deploy` was present in the available-skills list. Loaded before task execution. All 3 known gotchas were covered by the skill's "Common Pitfalls" section.
+`substreams-sink-deploy` was present in the available-skills list. Loaded before task execution. All 3 known gotchas were covered by the skill's "Common Pitfalls" section.
 
 ## Task Outcome
 PASS — 537 rows in `usdc_transfers` (expected 537).
@@ -14,20 +14,8 @@ Allowed schemes: `[psql, postgres, clickhouse, parquet]`.
 Fix: use `psql://...` or `postgres://...`.
 The skill's quick-reference example uses `postgresql://` which will fail on this version.
 
-### 2. Setup embeds composite-PK schema — manual fix required after setup
-The `setup` command applies the schema embedded in the `.spkg`, which in T2.3 has:
-```sql
-PRIMARY KEY (tx_hash, log_index)
-```
-But the Rust `db_out` module sends a single synthetic string PK: `format!("{}-{}", tx_hash, log_index)`.
-
-The correct fix sequence:
-1. Run `substreams-sink-sql setup` (creates cursors + substreams_history tables)
-2. DROP the application table (`usdc_transfers`)
-3. Recreate with `id VARCHAR NOT NULL PRIMARY KEY`
-4. Then run the sink
-
-Running `setup` AFTER manually creating the table would overwrite it with the composite PK version.
+### 2. ~~Composite-PK schema mismatch~~ (fixed in T2.3 — no longer an issue)
+During early trials, T2.3's Rust `db_out` emitted a single synthetic string PK while the embedded schema used `PRIMARY KEY (tx_hash, log_index)`. **This was fixed** — T2.3 now correctly uses composite PKs in both the schema and Rust code. No manual table recreation is required.
 
 ### 3. --batch-block-flush-interval=1 is essential for 100-block range
 Without it (default=1000), the sink completes 100 blocks without ever flushing to DB.

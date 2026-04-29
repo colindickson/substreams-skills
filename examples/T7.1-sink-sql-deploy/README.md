@@ -25,7 +25,7 @@ This is operational, not Rust-coding — the skill covers CLI arg order, DSN sch
 The skill's "Common Pitfalls" section covered all three issues that surfaced during the trial:
 
 1. **DSN scheme** — `substreams-sink-sql` v4.13.1 rejects `postgresql://`. Allowed: `psql://`, `postgres://`, `clickhouse://`, `parquet://`. Skill quick-reference example was patched to use `psql://`.
-2. **Composite-PK schema mismatch** — `setup` applies the schema embedded in the `.spkg`. T2.3's embedded schema has `PRIMARY KEY (tx_hash, log_index)` while the Rust `db_out` module emits a single synthetic string PK (`format!("{}-{}", tx_hash, log_index)`). Correct sequence: run `setup`, drop the application table, recreate with `id VARCHAR PRIMARY KEY`, then run the sink.
+2. **Composite-PK schema mismatch** *(fixed in T2.3)* — Early trials had a mismatch between the embedded schema PK and the Rust `db_out` PK. T2.3 was subsequently fixed to use composite PKs consistently — no workaround needed.
 3. **`--batch-block-flush-interval=1`** — without it (default 1000), a 100-block range completes without flushing to DB and the verify query returns 0 rows.
 
 ## Files
@@ -36,13 +36,10 @@ The skill's "Common Pitfalls" section covered all three issues that surfaced dur
 
 ```bash
 docker run -d -p 5436:5432 -e POSTGRES_PASSWORD=secret postgres:15
-go install github.com/streamingfast/substreams-sink-sql/cmd/substreams-sink-sql@latest
+go install github.com/streamingfast/substreams-sink-sql/cmd/substreams-sink-sql@latest  # v4.13.1 tested
 
 # Build the .spkg from the T2.3 example first
 substreams-sink-sql setup "psql://postgres:secret@localhost:5436/postgres?sslmode=disable" usdc-sql-sink-v0.1.0.spkg
-
-# Drop + recreate the table with synthetic PK (see deployment-notes.md)
-psql ... -c "DROP TABLE usdc_transfers; CREATE TABLE usdc_transfers (id VARCHAR PRIMARY KEY, ...);"
 
 substreams-sink-sql run \
   "psql://postgres:secret@localhost:5436/postgres?sslmode=disable" \

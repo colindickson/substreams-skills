@@ -19,4 +19,6 @@ fn main() {
         .expect("Failed to generate ERC20 bindings")
         .write_to_file("src/abi/erc20.rs")
         .expect("Failed to write ERC20 bindings");
+
+    prost_build::compile_protos(&["proto/dex_volume.proto", "proto/entity.proto"], &["proto/"]).unwrap();
 }

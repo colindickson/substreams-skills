@@ -12,4 +12,6 @@ fn main() {
         .expect("Failed to generate ERC20 bindings")
         .write_to_file("src/abi/erc20.rs")
         .expect("Failed to write ERC20 bindings");
+
+    prost_build::compile_protos(&["proto/uniswap_v2.proto"], &["proto/"]).unwrap();
 }

@@ -2,7 +2,13 @@ use substreams::errors::Error;
 use substreams_solana::b58;
 use substreams_solana::pb::sf::solana::r#type::v1::Block;
 
-mod pb;
+mod pb {
+    pub mod pumpfun {
+        pub mod v1 {
+            include!(concat!(env!("OUT_DIR"), "/pumpfun.v1.rs"));
+        }
+    }
+}
 use pb::pumpfun::v1::{Launch, Launches};
 
 /// Pump.fun program ID on Solana mainnet
