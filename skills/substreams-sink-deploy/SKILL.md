@@ -131,10 +131,9 @@ postgres://user:pass@host:5432/dbname?sslmode=disable     # alias
 
 # ClickHouse
 clickhouse://default:pass@host:9000/dbname
-
-# Parquet (writes to local files / object storage)
-parquet:///abs/path/output/
 ```
+
+> **Note:** `parquet://` is NOT a `substreams-sink-sql` scheme — Parquet output uses `substreams-sink-files` with `--encoder=parquet`. See the Files sink section below.
 
 ### Setup → Run flow
 
@@ -143,7 +142,7 @@ parquet:///abs/path/output/
 substreams-sink-sql setup "$DSN" ./my-substreams.spkg
 
 # 2. Run the sink (long-running process)
-#    CLI signature: substreams-sink-sql run <DSN> <manifest> [<block_range>] -e <endpoint>
+#    CLI signature: substreams-sink-sql run <DSN> <manifest> [<module_name>] [<block_range>] -e <endpoint>
 #    Module name is auto-inferred from the .spkg if a single sink module exists.
 substreams-sink-sql run "$DSN" \
     ./my-substreams.spkg \
