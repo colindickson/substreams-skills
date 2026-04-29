@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package dex.volume.v1;
+
+// Emitted by map_v2_swaps / map_v3_swaps: one SwapVolume per Swap log in the block.
+// Carries enough info for the store to bucket by (protocol, pool, day).
+message SwapVolume {
+  // Protocol: "v2" or "v3"
+  string protocol = 1;
+  // Pool address, lowercase hex with 0x prefix
+  string pool_address = 2;
+  // Unix day bucket: block_timestamp / 86400
+  uint64 day_bucket = 3;
+  // |amount1| in raw token units (unsigned bigint as decimal string)
+  string amount1_abs = 4;
+  // Token1 decimals (for display / volume scaling)
+  uint32 token1_decimals = 5;
+  // Token1 symbol (for labelling)
+  string token1_symbol = 6;
+}
+
+message SwapVolumes {
+  repeated SwapVolume swaps = 1;
+}
+
+// Per-pool token metadata, cached in a store keyed by pool address
+// (separate store keys per protocol to avoid cross-protocol collision)
+message TokenPair {
+  string token0_address = 1;
+  string token0_symbol = 2;
+  uint32 token0_decimals = 3;
+  string token1_address = 4;
+  string token1_symbol = 5;
+  uint32 token1_decimals = 6;
+}
+
+message PoolTokenEntry {
+  // Key = "<protocol>:<pool_address>" to ensure per-protocol namespacing
+  string key = 1;
+  TokenPair pair = 2;
+}
+
+message PoolTokenPairs {
+  repeated PoolTokenEntry entries = 1;
+}

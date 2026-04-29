@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+
+package:
+  name: nft-mints
+  version: v0.1.0
+  description: Tracks ERC721 NFT mints across all contracts on Ethereum mainnet
+
+protobuf:
+  files:
+    - nft_mints.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/nft_mints.wasm
+
+modules:
+  - name: map_nft_mints
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:nft.mints.v1.NftMints
+
+network: mainnet

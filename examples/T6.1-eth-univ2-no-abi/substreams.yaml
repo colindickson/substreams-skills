@@ -1,0 +1,28 @@
+specVersion: v0.1.0
+
+package:
+  name: univ2-swaps-no-abi
+  version: v0.1.0
+  description: Indexes Swap events on USDC-ETH Uniswap V2 pair without ABI JSON
+
+protobuf:
+  files:
+    - univ2_swaps.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/univ2_swaps_no_abi.wasm
+
+modules:
+  - name: map_swaps
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:univ2.swaps.v1.SwapEvents
+
+network: mainnet

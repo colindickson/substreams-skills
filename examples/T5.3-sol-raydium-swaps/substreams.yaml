@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+package:
+  name: raydium-clmm-swaps
+  version: v0.1.0
+  description: Tracks Raydium CLMM swaps on Solana mainnet.
+
+protobuf:
+  files:
+    - raydium/clmm/v1/swaps.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/raydium_clmm_swaps.wasm
+
+modules:
+  - name: map_swaps
+    kind: map
+    initialBlock: 320000000
+    inputs:
+      - source: sf.solana.type.v1.Block
+    output:
+      type: proto:raydium.clmm.v1.Swaps
+
+network: solana

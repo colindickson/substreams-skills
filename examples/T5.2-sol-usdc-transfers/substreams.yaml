@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+package:
+  name: sol_usdc_transfers
+  version: v0.1.0
+  description: Tracks USDC SPL token transfers on Solana mainnet.
+
+protobuf:
+  files:
+    - sol/v1/sol.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/sol_usdc_transfers.wasm
+
+modules:
+  - name: map_usdc_transfers
+    kind: map
+    initialBlock: 320000000
+    inputs:
+      - source: sf.solana.type.v1.Block
+    output:
+      type: proto:sol.v1.Transfers
+
+network: solana

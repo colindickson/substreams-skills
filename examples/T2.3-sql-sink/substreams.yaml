@@ -1,0 +1,48 @@
+specVersion: v0.1.0
+
+package:
+  name: usdc-sql-sink
+  version: v0.1.0
+  description: Persists USDC transfers to Postgres via substreams-sink-sql
+
+imports:
+  database: https://github.com/streamingfast/substreams-sink-database-changes/releases/download/v3.0.0/substreams-sink-database-changes-v3.0.0.spkg
+  sql: https://github.com/streamingfast/substreams-sink-sql/releases/download/protodefs-v1.0.7/substreams-sink-sql-protodefs-v1.0.7.spkg
+
+protobuf:
+  files:
+    - usdc_transfers.proto
+  importPaths:
+    - ./proto
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/usdc_sql_sink.wasm
+
+network: mainnet
+
+modules:
+  - name: map_usdc_transfers
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:usdc.transfers.v1.UsdcTransfers
+
+  - name: db_out
+    kind: map
+    inputs:
+      - map: map_usdc_transfers
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+
+sink:
+  module: db_out
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: ./schema.sql
+    engine: postgres

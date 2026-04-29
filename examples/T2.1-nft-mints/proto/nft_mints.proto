@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package nft.mints.v1;
+
+message NftMints {
+  repeated NftMint mints = 1;
+}
+
+message NftMint {
+  string contract = 1;
+  string token_id = 2;
+  string minter = 3;
+  string tx_hash = 4;
+  uint64 log_index = 5;
+  uint64 block_number = 6;
+}

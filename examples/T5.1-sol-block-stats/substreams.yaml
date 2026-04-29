@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+package:
+  name: sol_block_stats
+  version: v0.1.0
+  description: Per-slot stats for Solana blocks.
+
+protobuf:
+  files:
+    - sol/v1/sol.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/sol_block_stats.wasm
+
+modules:
+  - name: map_block_stats
+    kind: map
+    initialBlock: 320000000
+    inputs:
+      - source: sf.solana.type.v1.Block
+    output:
+      type: proto:sol.v1.BlockStats
+
+network: solana
