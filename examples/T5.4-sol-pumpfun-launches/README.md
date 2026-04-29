@@ -34,7 +34,7 @@ Track new token launches on pump.fun (program `6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ1
 
 ```bash
 substreams build
-substreams run ./substreams.yaml map_pumpfun_launches -s 320000000 -t +100 -o jsonl
+substreams run ./substreams.yaml map_launches -s 320000000 -t +100 -o jsonl
 ```
 
 ## Notes

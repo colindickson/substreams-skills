@@ -14,7 +14,7 @@ Track Marinade Finance `deposit` instructions (program `MarBmsSgKXdrN1egZf5sqe1T
 >
 > The Rust source for the deposit instruction is provided in `context/deposit.rs`. **Do not use any IDL JSON file.** Compute the Anchor instruction discriminator from the source (`sha256("global:deposit")[0..8]`) and parse the instruction data layout from the source.
 >
-> For each deposit: slot, signature, user wallet, sol_amount (lamports), msol_minted.
+> For each deposit: slot, signature, user wallet, sol_amount (lamports).
 
 ## What the skill provided
 
@@ -32,7 +32,7 @@ Track Marinade Finance `deposit` instructions (program `MarBmsSgKXdrN1egZf5sqe1T
 
 ```bash
 substreams build
-substreams run ./substreams.yaml map_marinade_deposits -s 250000000 -t +100 -o jsonl
+substreams run ./substreams.yaml map_deposits -s 250000000 -t +100 -o jsonl
 ```
 
 ## Notes

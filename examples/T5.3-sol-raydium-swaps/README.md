@@ -30,7 +30,7 @@ Raydium uses Anchor — `swap` and `swap_v2` instructions are dispatched by 8-by
 
 ```bash
 substreams build
-substreams run ./substreams.yaml map_raydium_swaps -s 320000000 -t +100 -o jsonl
+substreams run ./substreams.yaml map_swaps -s 320000000 -t +100 -o jsonl
 ```
 
 ## Notes

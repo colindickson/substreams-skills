@@ -37,7 +37,7 @@ Per-slot Solana stats: slot number, parent slot, total transactions (incl. faile
 
 ```bash
 substreams build
-substreams run ./substreams.yaml map_slot_stats -s 320000000 -t +100 -o jsonl
+substreams run ./substreams.yaml map_block_stats -s 320000000 -t +100 -o jsonl
 ```
 
 ## Notes

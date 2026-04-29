@@ -11,8 +11,6 @@ substreams = "0.6"
 substreams-solana = "0.14.3"
 prost = "0.13"
 prost-types = "0.13"
-base64 = "0.22"
-bs58 = "0.5"
 
 [profile.release]
 lto = true
