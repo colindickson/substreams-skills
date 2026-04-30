@@ -30,6 +30,12 @@ Expert knowledge for building SQL database sinks from Substreams data. Covers bo
 - **ClickHouse** - Analytics-optimized schemas, materialized views, and time-series patterns
 - **Schema Design** - Best practices for blockchain data modeling
 
+### ✅ Substreams Sink (`substreams-sink`)
+Expert knowledge for consuming Substreams data in custom applications. Use when integrating Substreams outputs directly into Go, JavaScript, Python, or Rust code:
+- **Go sink** — cursor management, reorg handling, gRPC streaming
+- **JavaScript sink** — Node.js integration and event handling
+- **Python / Rust** — SDK usage and production patterns
+
 ### ✅ Substreams Sink Deployment (`substreams-sink-deploy`)
 Expert operational guide for running and deploying Substreams sink binaries. Covers:
 - **Sink selection** — decision tree for SQL, Files, PubSub, Webhook, ProtoJSON, Subgraph
