@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.0.3
+  version: 1.1.0
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -39,6 +39,22 @@ docker pull ghcr.io/streamingfast/substreams-sink-sql:v4.12.0
 
 ## Core Concepts
 
+### Pre-flight: Clarifying Under-Specified SQL Requests
+
+SQL sink projects require several inputs before code can be written. If any
+of the following are missing, ask the user ONCE before proceeding:
+
+| Required input | Why it matters |
+|---|---|
+| **Chain + contract/protocol** | Determines module inputs and event shape |
+| **Database engine** | PostgreSQL vs ClickHouse have different schema syntax and sink flags |
+| **Data shape / tables** | Which entities, which fields, which primary keys? |
+| **Block range** | `initialBlock` and test window for `substreams-sink-sql run` |
+| **Aggregations needed?** | Delta updates vs raw event rows vs materialized views |
+
+If any item is unknown, collect all missing answers in a single question
+before writing manifests, schemas, or Rust code.
+
 ### What is Substreams SQL?
 
 Substreams SQL enables you to:
@@ -66,7 +82,10 @@ The CDC approach streams individual database operations (INSERT, UPDATE, DELETE)
 **Rust Implementation**:
 ```rust
 use substreams::prelude::*;
+// Always use the fully-qualified v4 path:
 use substreams_database_change::pb::sf::substreams::sink::database::v1::DatabaseChanges;
+// DEPRECATED (v3): substreams_database_change::pb::database::DatabaseChanges — still compiles
+// on crate v4 but will be removed; use the FQN above.
 use substreams_database_change::tables::Tables;
 
 #[substreams::handlers::map]
@@ -103,11 +122,13 @@ The manifest requires importing the database changes and sink-sql protodefs spkg
 specVersion: v0.1.0
 package:
   name: my-substreams-sql
-  version: 1.0.3
+  version: v0.1.0
 
 imports:
-    database: https://github.com/streamingfast/substreams-sink-database-changes/releases/download/v3.0.0/substreams-sink-database-changes-v3.0.0.spkg
+    # Use the latest v4+ spkg so the proto FQN matches the Rust crate:
+    database: https://github.com/streamingfast/substreams-sink-database-changes/releases/download/v4.0.0/substreams-sink-database-changes-v4.0.0.spkg
     sql: https://github.com/streamingfast/substreams-sink-sql/releases/download/protodefs-v1.0.7/substreams-sink-sql-protodefs-v1.0.7.spkg
+    # Note: v3 spkg import still works but exposes the deprecated short-path proto names.
 
 protobuf:
   excludePaths:
@@ -142,6 +163,8 @@ sink:
 [dependencies]
 substreams-database-change = "4"  # Latest: 4.0.0
 ```
+
+> **Note — graph-out (Entity Changes) is a DIFFERENT sink type:** if your project also needs The Graph output, use `sf.substreams.sink.entity.v1.EntityChanges` (NOT `DatabaseChanges`) and follow the inline-proto workaround in `substreams-sink` under "Graph Node / The Graph Output". Do not add `substreams-entity-change = "1"` directly — it conflicts with `prost = "0.13"`.
 
 **Running the sink** (DSN is passed on the command line, not in the manifest):
 ```bash

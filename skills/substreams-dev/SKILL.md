@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.0.3
+  version: 1.1.0
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -115,6 +115,38 @@ The `substreams auth` command handles token exchange and local storage automatic
 
 ## Common Workflows
 
+### Pre-flight: Clarifying Under-Specified Requests
+
+Before writing any code, check whether the request provides all of the
+following. If one or more items are missing or ambiguous, ask the user ONCE
+with a consolidated list — do not make silent assumptions and do not write code
+until you have the answers.
+
+| Required input | Why it matters |
+|---|---|
+| **Target chain** | Block type, RPC endpoints, and ABI tooling differ per chain |
+| **Contract address(es) or protocol** | Determines which events/calls to decode |
+| **Data you want to capture** | Events only? Calls? State changes? Aggregations? |
+| **Output / sink type** | `substreams run`, SQL sink, graph-out, custom sink? |
+| **Block range or time window** | `initialBlock` and test range; performance implications |
+| **Thresholds or filters** | Min value, token allowlist, address filter, etc. |
+
+**If any item is unknown**, respond with something like:
+
+> Before I build this, I need a few details:
+> 1. Which chain? (Ethereum mainnet, Polygon, Arbitrum, ...)
+> 2. Which contract(s) or protocol?
+> 3. What specific events or data fields do you need?
+> 4. Where should the output go? (Postgres, The Graph, just `substreams run`?)
+> 5. What start block or date range?
+> 6. Any filters — minimum transfer size, specific token list, etc.?
+
+Only ask once. If you receive partial answers, proceed with what you have and
+state your remaining assumptions explicitly in your response.
+
+**If the prompt is concrete and complete**, skip the checklist and build
+immediately.
+
 ### Creating a New Project
 
 1. **Initialize**: Use `substreams init` or create manifest manually
@@ -156,6 +188,26 @@ The `substreams auth` command handles token exchange and local storage automatic
     type: proto:sf.substreams.index.v1.Keys
 ```
 
+> **`initialBlock` guidance:**
+> ```yaml
+> modules:
+>   - name: map_events
+>     kind: map
+>     initialBlock: 18000000   # ✅ start of your test/data range
+>     # NOT: 12369621          # ❌ protocol genesis — forces full backfill on every run
+>     inputs:
+>       - source: sf.ethereum.type.v2.Block
+>     output:
+>       type: proto:my.types.Events
+> ```
+> Pin `initialBlock` to the first block your downstream consumer actually needs.
+> The runtime starts processing from `max(--start-block, initialBlock)`, then
+> walks forward. Stores must catch up from `initialBlock` on each cold start —
+> a deep genesis pin turns a 100-block test into a multi-hour backfill.
+>
+> For reference: the T3.2 golden uses `initialBlock: 17999900` to cover a
+> `-s 18000000 -t +100` acceptance window.
+
 ### Debugging Checklist
 
 When modules produce unexpected results:
@@ -165,7 +217,14 @@ When modules produce unexpected results:
 3. **Check logs**: Look for WASM panics, protobuf decode errors
 4. **Verify schema**: Ensure proto types match expected data
 5. **Review inputs**: Confirm input modules produce correct data
-6. **Initial block**: Check `initialBlock` is set appropriately
+6. **Initial block**: Check `initialBlock` is set appropriately.
+   - Set it to the **earliest block your test range starts from**, not the protocol's
+     first block. If you only need data from block 18000000, use `initialBlock: 18000000`.
+   - The runtime seeds stores forward from `initialBlock`. If you pin to protocol
+     genesis (e.g. 12369621 for Uniswap V3) but test at block 18000000, the sink
+     must backfill 5.6M blocks before producing output — impractical for local runs.
+   - For production: pin to the earliest block your downstream consumer cares about.
+   - For one-off testing: pin to a narrow window covering your test range.
 
 ### Performance Optimization
 
@@ -186,9 +245,15 @@ See [references/manifest-spec.md](./references/manifest-spec.md) for complete sp
 specVersion: v0.1.0
 package:
   name: my-substreams
-  version: 1.0.3
+  version: v1.0.3   # MUST have 'v' prefix — bare semver like "1.0.3" is rejected
   description: Description of what this substreams does
 ```
+
+> **`version` requires a `v` prefix.** Use `v0.1.0`, not `0.1.0`. The error
+> message (`version "0.1.0" should match Semver`) is misleading — both forms
+> are valid semver, but Substreams mandates the `v`-prefixed form. This applies
+> to the top-level `package.version` only; `specVersion` already shows the
+> correct prefix.
 
 **Protobuf imports**:
 ```yaml
@@ -253,7 +318,7 @@ substreams-database-change = "4"  # Latest: 4.0.0
 
 # Protobuf serialization
 prost = "0.13"
-prost-types = "0.13"
+prost-types = "0.13"  # Required for google.protobuf.Timestamp/Any in generated src/pb/ code
 
 # Utility crates
 hex = "0.4"
@@ -282,6 +347,12 @@ strip = "debuginfo"
 **Common Pitfalls:**
 - `hex_literal` vs `hex-literal`: Rust crate names use hyphens, not underscores
 - Missing `ethabi`: Required by ABI-generated code but not always obvious
+- **Missing `prost-types`**: If `substreams build` generates `src/pb/` code that
+  references `google.protobuf.Timestamp` or `google.protobuf.Any`, you will get
+  `error[E0433]: failed to resolve: use of undeclared crate or module prost_types`.
+  Ensure `prost-types = "0.13"` is in `[dependencies]` — the version must match
+  your `prost` major (currently `0.13` for the current substreams toolchain).
+  The template above includes it; do not remove it.
 - Version mismatch: Mixing 0.6/0.7 substreams versions causes linking errors
 - If you get "symbol multiply defined" errors, run `rm -rf target && substreams build`
 
@@ -335,6 +406,264 @@ pub fn store_totals(events: Events, store: StoreAddInt64) {
     }
 }
 ```
+
+### Token Metadata: ALWAYS Use a Store, NEVER a HashMap
+
+> **Anti-pattern — DO NOT do this:**
+
+```rust
+// ❌ WRONG: per-block HashMap cache. Re-fetched every block. Wastes RPC budget.
+#[substreams::handlers::map]
+pub fn map_swaps(block: Block) -> Result<Swaps, Error> {
+    let mut token_cache: HashMap<String, TokenMeta> = HashMap::new();  // ❌ scope = single block
+    for log in block.logs() {
+        let addr = log.address().to_string();
+        let meta = token_cache.entry(addr.clone())
+            .or_insert_with(|| fetch_token_metadata(&addr));  // ❌ fetched fresh next block
+        // ...
+    }
+}
+```
+
+A `HashMap` declared inside a map handler is **rebuilt every block**. With ~50 unique pools per block × 2 tokens × 2 RPC calls (symbol + decimals), that's 200 RPCs per block — 20,000 over a 100-block run. The hosted Substreams runtime enforces RPC budgets; this pattern will fail at scale and waste quota at any scale.
+
+> **Correct pattern — use a `set_if_not_exists` store:**
+
+Token metadata (`symbol`, `decimals`, `name`) is **immutable per contract address**. Cache once, read forever. The idiomatic chain:
+
+```
+map_token_addresses  →  store_token_metadata  →  map_swaps (reads from store)
+```
+
+The `store_token_metadata` handler runs the RPC **only the first time** each address is seen across the entire run — `set_if_not_exists` skips writes for keys already present. After that, `map_swaps` reads metadata from the store with **zero RPC per block**.
+
+### Calling Contracts from a Map Handler (eth_call)
+
+**Yes, you can — and often should — call contracts from a map module.**
+
+`substreams-ethereum::rpc::RpcBatch` works in map handlers. The host runtime executes the batch synchronously before returning to your handler. There is no architectural restriction preventing RPCs in maps; this is a common misconception.
+
+**Copy-paste example — batch ERC20 metadata lookup:**
+
+```rust
+use substreams_ethereum::rpc::RpcBatch;
+// generated from build.rs / ABI codegen (or write by hand):
+use crate::abi::erc20;
+
+// Returns None on transient RPC failure or undecodable response — caller must skip + log.
+// Never panic from a map/store handler: an unhandled panic aborts the whole substream.
+fn fetch_token_metadata(token_addr: &[u8]) -> Option<(String, u32)> {
+    let batch = RpcBatch::new();
+    let responses = batch
+        .add(erc20::functions::Symbol {}, token_addr.to_vec())
+        .add(erc20::functions::Decimals {}, token_addr.to_vec())
+        .execute()
+        .ok()?;  // transient RPC error → None, do not panic
+
+    let symbol   = RpcBatch::decode::<_, erc20::functions::Symbol>(&responses.responses[0])?;
+    let decimals = RpcBatch::decode::<_, erc20::functions::Decimals>(&responses.responses[1])?
+        .to_u64() as u32;  // never default to 18 — wrong for USDC/USDT (6), WBTC (8)
+    Some((symbol, decimals))
+}
+```
+
+> **Never panic from a Substreams handler.** `.expect()` / `.unwrap()` on RPC results aborts the entire substream on any transient endpoint hiccup. Return `Option`/`Result`, then have the caller log + skip the record. Same for decimals: never silently default to 18 — emit nothing rather than wrong data.
+
+#### ABI codegen output types: BigInt, not ethabi::Uint
+
+`substreams-ethereum-abigen` (the build.rs codegen) emits `substreams::scalar::BigInt` for any `uint*` or `int*` field — including `uint256`, `int256`, and the wider `uint8`/`uint32`/etc. It does NOT emit `ethabi::Uint` or `ethabi::Int`.
+
+```rust
+// ❌ WRONG — older API; abigen does not emit ethabi types
+fn format_amount(raw: &ethabi::Uint, decimals: u32) -> String { /* ... */ }
+
+// ✅ CORRECT — abigen emits BigInt
+use substreams::scalar::BigInt;
+fn format_amount(raw: &BigInt, decimals: u32) -> String {
+    raw.to_decimal(decimals as u64).to_string()
+}
+```
+
+If you need a primitive integer (e.g. converting `decimals()` BigInt to `u32`):
+
+```rust
+// BigInt → primitive (assumes value fits — overflow is silent)
+let decimals_u32: u32 = big_int_value.to_u64() as u32;
+let amount_i64:  i64 = big_int_value.to_i64();
+```
+
+For signed `int256` values from event fields, use `BigInt::to_decimal(decimals)` for human-readable string, or the `signum()` + `abs()` methods to inspect sign.
+
+#### Generated `.call()` method takes one argument (the contract address)
+
+`substreams-ethereum-abigen` emits a `.call(address)` method on each function struct that performs the eth_call via the substreams host. It takes exactly ONE argument — the contract address. There is no second `&block` argument.
+
+```rust
+use crate::abi::erc20::functions;
+
+// ❌ WRONG — older two-arg form (predates current substreams-ethereum)
+let decimals = functions::Decimals::call(token_addr, &block);
+
+// ✅ CORRECT — single-arg form, returns Option<T>; propagate None, never default
+fn fetch_decimals(token_addr: &[u8]) -> Option<u32> {
+    functions::Decimals {}
+        .call(token_addr.to_vec())
+        .map(|d| d.to_u64() as u32)
+}
+
+// Caller: log + skip on None — do NOT default to 18.
+let decimals = match fetch_decimals(&addr_bytes) {
+    Some(d) => d,
+    None => { substreams::log::warn!("decimals fetch failed for {:x?}", addr_bytes); continue; }
+};
+```
+
+`.call()` returns `Option<T>` — `None` on RPC failure or decode failure. Always handle the `None` arm; never `.unwrap()` and never default decimals to `18` (silently wrong for USDC/USDT/WBTC). Skip the record or return `None`/`Err` to the caller.
+
+For batched calls covering multiple eth_calls in one round-trip, prefer `RpcBatch::new().add(...)` (shown above).
+
+### Full module graph: cache once, read forever
+
+**`substreams.yaml`:**
+
+```yaml
+modules:
+  - name: map_token_addresses
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:my.types.v1.TokenAddresses
+
+  - name: store_token_metadata
+    kind: store
+    updatePolicy: set_if_not_exists   # ← write once, never overwrite
+    valueType: proto:my.types.v1.TokenMeta
+    inputs:
+      - map: map_token_addresses
+
+  - name: map_swaps
+    kind: map
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_token_metadata
+        mode: get
+    output:
+      type: proto:my.types.v1.Swaps
+```
+
+**`store_token_metadata` handler (RPC fires here, ONCE per address):**
+
+```rust
+#[substreams::handlers::store]
+pub fn store_token_metadata(
+    addrs: TokenAddresses,
+    store: StoreSetIfNotExistsProto<TokenMeta>,
+) {
+    for addr_hex in &addrs.addresses {
+        let addr_bytes = match hex::decode(addr_hex.trim_start_matches("0x")) {
+            Ok(bytes) => bytes,
+            Err(_) => { substreams::log::warn!("invalid token address: {}", addr_hex); continue; }
+        };
+        let (symbol, decimals) = match fetch_token_metadata(&addr_bytes) {
+            Some(meta) => meta,
+            None => { substreams::log::warn!("token metadata fetch failed for {}", addr_hex); continue; }
+        };
+        store.set_if_not_exists(0, addr_hex, &TokenMeta { symbol, decimals });
+    }
+}
+```
+
+**`map_swaps` handler (zero RPC after first seen):**
+
+```rust
+#[substreams::handlers::map]
+pub fn map_swaps(
+    block: Block,
+    meta_store: StoreGetProto<TokenMeta>,
+) -> Result<Swaps, substreams::errors::Error> {
+    let mut swaps = Swaps::default();
+    for pool_log in extract_swap_logs(&block) {
+        let meta = meta_store.get_last(&pool_log.token_address)
+            .unwrap_or_else(|| TokenMeta { symbol: "UNKNOWN".into(), decimals: 18 });
+        swaps.items.push(build_swap(pool_log, meta));
+    }
+    Ok(swaps)
+}
+```
+
+**Rule of thumb**: if a value is immutable per contract address (symbol, decimals, factory deployment, pair tokens), use a `set_if_not_exists` store. If you wrote `let mut cache: HashMap<...> = HashMap::new();` inside a map handler, you have a bug.
+
+### Uniswap V3 Pool Token Resolution (F35)
+
+> **Common failure mode:** agents use call traces or hardcode known tokens instead of batching `token0()`/`token1()` eth_calls. Call traces are incomplete — they only appear when the pool is the *callee*, not for every swap. This silently produces `UNKNOWN` tokens for most pools.
+
+V3 pools store `token0` and `token1` as immutable state. Resolve them via raw `eth_call` and cache in a store — same pattern as ERC20 metadata.
+
+**`RpcBatch::add` requires a generated ABI struct.** For pool selectors, use `eth_call` with raw `RpcCalls` directly — no ABI codegen needed:
+
+```rust
+// Uniswap V3 pool: token0() → address, token1() → address
+// selector = keccak256("token0()")[0..4] = 0x0dfe1681
+// selector = keccak256("token1()")[0..4] = 0xd21220a7
+
+use substreams_ethereum::pb::eth::rpc::{RpcCall, RpcCalls};
+use substreams_ethereum::rpc::eth_call;
+
+fn decode_address_return(raw: &[u8]) -> Option<Vec<u8>> {
+    // ABI: address is padded to 32 bytes, actual address is last 20
+    if raw.len() < 32 { return None; }
+    Some(raw[12..32].to_vec())   // skip 12 bytes of zero-padding
+}
+
+fn fetch_pool_tokens(pool_addr: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+    let calls = RpcCalls {
+        calls: vec![
+            RpcCall { to_addr: pool_addr.to_vec(), data: vec![0x0d, 0xfe, 0x16, 0x81] }, // token0()
+            RpcCall { to_addr: pool_addr.to_vec(), data: vec![0xd2, 0x12, 0x20, 0xa7] }, // token1()
+        ],
+    };
+    let responses = eth_call(&calls);
+    if responses.responses.len() < 2 { return None; }
+    let token0 = decode_address_return(&responses.responses[0].raw)?;
+    let token1 = decode_address_return(&responses.responses[1].raw)?;
+    Some((token0, token1))
+}
+```
+
+> **Note:** `RpcBatch::add_call()` does NOT exist in `substreams-ethereum v0.11`. Use `eth_call(&RpcCalls { calls: [...] })` for raw calldata, or `RpcBatch::add(AbiStruct {}, addr)` when you have generated ABI structs.
+
+**Wire it into a store** (exactly like ERC20 metadata):
+
+```
+map_v3_pools (emits pool addresses)  →  store_pool_tokens (set_if_not_exists)  →  map_v3_swaps (reads token0/token1 from store)
+```
+
+```rust
+// In map_v3_pools: emit any new pool addresses seen this block
+// In store handler:
+#[substreams::handlers::store]
+pub fn store_pool_tokens(pools: PoolAddresses, store: StoreSetIfNotExistsProto<TokenPair>) {
+    for pool_hex in &pools.addresses {
+        let pool_bytes = match hex::decode(pool_hex.trim_start_matches("0x")) {
+            Ok(bytes) => bytes,
+            Err(_) => { substreams::log::warn!("invalid pool address: {}", pool_hex); continue; }
+        };
+        if let Some((t0, t1)) = fetch_pool_tokens(&pool_bytes) {
+            store.set_if_not_exists(0, pool_hex, &TokenPair {
+                token0: format!("0x{}", hex::encode(&t0)),
+                token1: format!("0x{}", hex::encode(&t1)),
+            });
+        }
+    }
+}
+
+// In map_v3_swaps: read from store (zero RPC)
+let pair = pool_store.get_last(&pool_hex)
+    .unwrap_or_default();  // default = empty strings if pool not yet seen
+```
+
+**Never use call traces for token resolution.** `block.calls()` only has entries when a call to the pool was the *top-level* transaction call or an explicit internal call — it misses pools that emitted Swap via pure EVM event emission without a visible call trace.
 
 ### Best Practices
 
@@ -538,6 +867,8 @@ See [references/patterns.md](./references/patterns.md) for detailed examples:
 * Parameterized modules
 * Dynamic data sources
 * **Database sink patterns** (delta updates, composite keys, sink SQL workflow)
+* **Token metadata caching** — always store, never HashMap; see "Token Metadata: ALWAYS Use a Store" above
+* **Contract calls from maps** — RpcBatch works in map handlers; see "Calling Contracts from a Map Handler" above
 
 ## Querying Chain Head Block
 
@@ -575,6 +906,8 @@ Read the first line of output to get the head block information.
 
 **Build fails**:
 
+* **`version "x.y.z" should match Semver`**: Add a `v` prefix to `package.version`
+  in `substreams.yaml` — use `v0.1.0`, not `0.1.0`.
 * Check Rust toolchain: `rustup target add wasm32-unknown-unknown`
 * Ensure `buf` CLI is installed (required for proto generation)
 * Verify proto imports are correct
@@ -611,6 +944,84 @@ If you see errors like "no method named `decode` found":
 * Add indexes to skip irrelevant blocks
 * Use `--production-mode` for large ranges
 
+## graph_out Modules (The Graph / Subgraph Output)
+
+> **Also load `substreams-sink` skill** when building a `graph_out` module. It contains the full working example and the EntityChanges proto definition.
+
+Key facts to avoid the most common mistake:
+
+| You want to write to | Output proto | Package |
+|---|---|---|
+| The Graph / subgraph | `EntityChanges` | `sf.substreams.sink.entity.v1` |
+| Postgres / SQL | `DatabaseChanges` | `sf.substreams.sink.database.v1` |
+
+**These are NOT interchangeable.** Using `DatabaseChanges` in a `graph_out` module (or vice versa) compiles but produces a pipeline that fails or emits garbage.
+
+### Quick pattern (full example in substreams-sink skill)
+
+Do NOT add `substreams-entity-change = "1"` to Cargo.toml — v1 has a `prost` version conflict with the current toolchain. Instead, inline the proto:
+
+**`proto/entity.proto`** (exact package name required):
+```proto
+syntax = "proto3";
+package sf.substreams.sink.entity.v1;
+
+message EntityChanges {
+  repeated EntityChange entity_changes = 1;
+}
+message EntityChange {
+  enum Operation { UNSET=0; CREATE=1; UPDATE=2; DELETE=3; FINAL=4; }
+  string entity = 1;
+  string id = 2;
+  uint64 ordinal = 3;
+  Operation operation = 4;
+  repeated Field fields = 5;
+}
+message Value {
+  oneof typed {
+    int32  int32      = 1;
+    string bigdecimal = 2;
+    string bigint     = 3;
+    string string     = 4;
+    bytes  bytes      = 5;
+    bool   bool       = 6;
+    Array  array      = 10;
+  }
+}
+message Array {
+  repeated Value value = 1;
+}
+message Field {
+  string name      = 1;
+  Value  old_value = 2;
+  Value  new_value = 3;
+}
+```
+
+> **Wire compatibility:** Copy this proto verbatim from the [canonical source](https://github.com/streamingfast/substreams-sink-entity-changes/blob/develop/proto/sf/substreams/sink/entity/v1/entity.proto). The package name, message names, field numbers, and field types must all match exactly — simplifying any type (e.g. `string` for `new_value`) will produce empty/garbage values in Graph Node.
+
+**`substreams.yaml`** output type:
+```yaml
+output:
+  type: proto:sf.substreams.sink.entity.v1.EntityChanges
+```
+
+**Rust import** (after proto is compiled via build.rs):
+```rust
+use crate::pb::sf::substreams::sink::entity::v1::{EntityChange, EntityChanges, Field};
+use crate::pb::sf::substreams::sink::entity::v1::entity_change::Operation;
+```
+
+---
+
+## Solana Substreams
+
+Solana uses a different block model, instruction paradigm, and account system than EVM chains. Do not apply Ethereum patterns here.
+
+**For all Solana development — block iteration, `walk_instructions()` vs `message.instructions`, SPL Token parsing, Anchor discriminators, `b58!`, Cargo.toml + manifest setup — see [references/solana.md](./references/solana.md).**
+
+---
+
 ## Resources
 
 * [Official Documentation](https://substreams.streamingfast.io)
@@ -618,6 +1029,7 @@ If you see errors like "no method named `decode` found":
 * [Manifest Specification](./references/manifest-spec.md)
 * [Common Patterns](./references/patterns.md)
 * [Supported Networks](./references/networks.md)
+* [Solana Development](./references/solana.md)
 
 ## Getting Help
 

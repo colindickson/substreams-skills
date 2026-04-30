@@ -142,6 +142,7 @@ modules:
 - Use `sf.solana.type.v1.Block` as source input
 - Different transaction structure (accounts, instructions)
 - No gas concept (uses compute units and fees)
+- For Solana development guidance (block iteration, SPL parsing, Anchor, b58, etc.) see [solana.md](./solana.md)
 
 ### NEAR Protocol
 - Use `sf.near.type.v1.Block` as source input

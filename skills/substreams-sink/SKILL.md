@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.0.3
+  version: 1.1.0
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -64,6 +64,144 @@ export SUBSTREAMS_API_TOKEN="your-jwt-token"
 ```
 
 The `substreams auth` command handles token exchange and local storage automatically.
+
+## Sink Output Types — Pick the Right Proto FIRST
+
+Before writing a `graph_out` or `db_out` module, choose the correct output proto. These are different sink contracts; mixing them up produces a buildable-but-wrong pipeline.
+
+| You want to write to... | Output proto type | Crate / proto package | When to use |
+|---|---|---|---|
+| **The Graph (subgraph entities)** | `sf.substreams.sink.entity.v1.EntityChanges` | `substreams-entity-change` (BROKEN — see below) | `graph_out` modules feeding a Graph Node, hosted subgraph, or `substreams-sink-subgraph` |
+| **Postgres / ClickHouse / SQL DB** | `sf.substreams.sink.database.v1.DatabaseChanges` | `substreams-database-change = "4"` | `db_out` modules feeding `substreams-sink-sql` or hosted SQL sink |
+| **Custom sink (Go/Rust consumer)** | Your own proto type | n/a | Bespoke consumers reading raw module output |
+
+**Rule**: never use `DatabaseChanges` for graph-out, never use `EntityChanges` for SQL sinks. They are not interchangeable. Acceptance tests in eval corpus auto-zero on wrong proto type.
+
+## Graph Node / The Graph Output (Entity Changes)
+
+> **Blocker — read before adding `substreams-entity-change`.**
+
+The published crate `substreams-entity-change = "1"` pins `prost = "0.11"` and `substreams = "0.5"`. It **cannot** resolve alongside the current toolchain (`substreams = "0.7"`, `prost = "0.13"`). Cargo errors at dep resolution with conflicting `prost` trait impls — no version constraint fixes it on v1.
+
+### Workaround: inline the entity-change proto
+
+Until v2 ships, define `sf.substreams.sink.entity.v1` types inline. **This proto is for graph-out (The Graph) only**. Do NOT use it for SQL sinks — that's a different proto package (`sf.substreams.sink.database.v1`).
+
+**1. Add the proto definition** (`proto/entity.proto`):
+
+```proto
+syntax = "proto3";
+package sf.substreams.sink.entity.v1;
+
+message EntityChanges {
+  repeated EntityChange entity_changes = 1;
+}
+
+message EntityChange {
+  enum Operation {
+    UNSET      = 0;
+    CREATE     = 1;
+    UPDATE     = 2;
+    DELETE     = 3;
+    FINAL      = 4;
+  }
+  string entity          = 1;
+  string id              = 2;
+  uint64 ordinal         = 3;
+  Operation operation    = 4;
+  repeated Field fields  = 5;
+}
+
+message Value {
+  oneof typed {
+    int32  int32      = 1;
+    string bigdecimal = 2;
+    string bigint     = 3;
+    string string     = 4;
+    bytes  bytes      = 5;
+    bool   bool       = 6;
+    Array  array      = 10;
+  }
+}
+
+message Array {
+  repeated Value value = 1;
+}
+
+message Field {
+  string name      = 1;
+  Value  old_value = 2;  // previous value — required for UPDATE/undo operations
+  Value  new_value = 3;
+}
+```
+
+> **Wire compatibility:** Both the package name AND the exact message/field definitions (numbers + types) must match. `package sf.substreams.sink.entity.v1;` is required — do NOT change it to `sf.substreams.sink.database.v1` (that's the SQL sink). Copy this proto verbatim from the [canonical source](https://github.com/streamingfast/substreams-sink-entity-changes/blob/develop/proto/sf/substreams/sink/entity/v1/entity.proto) — do not simplify field types or the output will decode as empty values in Graph Node.
+
+**2. Reference in manifest** (`substreams.yaml`):
+
+```yaml
+protobuf:
+  files:
+    - proto/entity.proto
+    # ... other protos
+
+modules:
+  - name: graph_out
+    kind: map
+    inputs:
+      - map: map_events
+    output:
+      type: proto:sf.substreams.sink.entity.v1.EntityChanges  # ← graph-out
+      # NOT: proto:sf.substreams.sink.database.v1.DatabaseChanges (that's SQL)
+```
+
+**3. Use the generated type in Rust**:
+
+```rust
+use crate::pb::sf::substreams::sink::entity::v1::{EntityChange, EntityChanges, Field, Value};
+use crate::pb::sf::substreams::sink::entity::v1::entity_change::Operation;
+use crate::pb::sf::substreams::sink::entity::v1::value::Typed;
+
+// `Field.new_value` and `old_value` are `Value` messages, so the prost-generated
+// Rust type is `Option<Value>` — you cannot assign a raw String/Vec<u8>/u64 directly.
+// Wrap each scalar in the appropriate `Typed::*` oneof variant. Helpers below
+// cover the common cases; add `Typed::Bool`, `Typed::Bytes`, `Typed::Int32`,
+// `Typed::Bigdecimal`, `Typed::Array` as needed for your schema.
+fn val_string(s: impl Into<String>) -> Option<Value> {
+    Some(Value { typed: Some(Typed::String(s.into())) })
+}
+fn val_bigint(decimal_str: impl Into<String>) -> Option<Value> {
+    // BigInt is wire-encoded as its decimal string, e.g. "12345"
+    Some(Value { typed: Some(Typed::Bigint(decimal_str.into())) })
+}
+
+#[substreams::handlers::map]
+pub fn graph_out(events: Events) -> Result<EntityChanges, substreams::errors::Error> {
+    let mut changes = EntityChanges::default();
+
+    for mint in events.mints {
+        changes.entity_changes.push(EntityChange {
+            entity: "NftMint".to_string(),
+            id: format!("{}-{}", mint.tx_hash, mint.log_index),
+            ordinal: mint.ordinal,
+            operation: Operation::Create as i32,
+            fields: vec![
+                // tokenId: uint256 → BigInt-as-decimal-string
+                Field { name: "tokenId".to_string(), old_value: None, new_value: val_bigint(mint.token_id.clone()) },
+                // address / hash fields: keep as hex strings for Graph Node consumption
+                Field { name: "to".to_string(),      old_value: None, new_value: val_string(mint.to.clone()) },
+                Field { name: "txHash".to_string(),  old_value: None, new_value: val_string(mint.tx_hash.clone()) },
+            ],
+        });
+    }
+
+    Ok(changes)
+}
+```
+
+**Do NOT** add `substreams-entity-change` to `Cargo.toml` when using this workaround. The generated proto code is sufficient; adding the crate triggers the prost conflict.
+
+> **For SQL sinks** (Postgres / ClickHouse / `db_out`), use `substreams-database-change = "4"` — see `substreams-sql/SKILL.md`. Those crates ARE compatible with the current toolchain. Do NOT inline `DatabaseChanges` proto and call your module `graph_out` — that mixes sink types and the run will fail (or worse, succeed silently with garbage data).
 
 ## Language Recommendations
 
