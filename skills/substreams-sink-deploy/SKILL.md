@@ -142,7 +142,7 @@ clickhouse://default:pass@host:9000/dbname
 substreams-sink-sql setup "$DSN" ./my-substreams.spkg
 
 # 2. Run the sink (long-running process)
-#    CLI signature: substreams-sink-sql run <DSN> <manifest> [<module_name>] [<block_range>] [-e <endpoint>]
+#    CLI signature: substreams-sink-sql run <DSN> <package.spkg> [<module_name>] [<block_range>] [-e <endpoint>]
 #    -e/--endpoint is optional if the .spkg embeds a network/endpoint; required otherwise.
 #    Module name is auto-inferred from the .spkg if a single sink module exists.
 substreams-sink-sql run "$DSN" \
@@ -176,7 +176,7 @@ The sink writes the latest processed cursor to the `cursors` table on every batc
 
 To intentionally restart from scratch:
 ```bash
-substreams-sink-sql undo "$DSN" ./manifest.spkg --all
+substreams-sink-sql undo "$DSN" ./my-substreams.spkg --all
 ```
 
 ### Reorg handling
@@ -188,7 +188,7 @@ For tasks that must NEVER see uncommitted data (e.g. accounting, balances), use 
 
 ### Hosted SQL sink
 
-> **TODO:** Hosted sink not yet released. Check https://docs.substreams.dev/how-to-guides/sinks for availability updates.
+> Hosted SQL sink is not yet released. Check https://docs.substreams.dev/how-to-guides/sinks for availability updates.
 
 ---
 
@@ -304,7 +304,7 @@ substreams sink webhook \
     https://my-app.example.com/webhook
 ```
 
-Each block's output is POSTed as JSON. Your endpoint must return 2xx; otherwise the sink retries with exponential backoff. Cursor stored in `./state.json` next to the manifest.
+Each block's output is POSTed as JSON. Your endpoint must return 2xx; otherwise the sink retries with exponential backoff. Cursor is written to `./state.json` in the current working directory — persist or mount that path in Docker to resume across restarts.
 
 **Don't use webhooks for high-volume data.** PubSub or SQL beats it past ~100 events/sec.
 
@@ -369,7 +369,7 @@ For `EntityChanges` proto setup and module patterns → use the `substreams-dev`
 
 | You want                                           | Pick                                |
 |----------------------------------------------------|-------------------------------------|
-| Zero ops, paid managed Postgres                    | StreamingFast hosted (sales@) / Pinax |
+| Zero ops, paid managed Postgres                    | StreamingFast hosted (sales@streamingfast.io) / Pinax |
 | Free, you manage the box                           | Self-host `substreams-sink-sql`     |
 | Subgraph on The Graph network                       | Substreams-powered Subgraph (decentralized) |
 | Files into your data lake                          | Self-host `substreams-sink-files`   |
@@ -394,7 +394,7 @@ Fix: the substreams module's output proto must EXACTLY match what the sink expec
 
 The sink's setup step expects to create / find specific bookkeeping tables. If you hand-wrote `schema.sql` without them, run:
 ```bash
-substreams-sink-sql generate "$DSN" ./manifest.spkg <module>
+substreams-sink-sql generate "$DSN" ./my-substreams.spkg <module>
 ```
 to regenerate, then merge your custom tables in.
 
