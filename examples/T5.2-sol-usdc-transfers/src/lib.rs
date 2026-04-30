@@ -18,7 +18,7 @@ const SPL_TOKEN_PROGRAM: [u8; 32] = b58!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623
 const USDC_MINT: [u8; 32] = b58!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 // SPL Token instruction discriminators
-const TRANSFER: u8 = 3; // handled below (skipped — mint not resolvable from instruction alone)
+const TRANSFER: u8 = 3;
 const TRANSFER_CHECKED: u8 = 12;
 
 #[substreams::handlers::map]
@@ -75,14 +75,32 @@ fn map_usdc_transfers(block: Block) -> Result<Transfers, Error> {
                     });
                 }
                 TRANSFER => {
-                    // Transfer (discriminator=3) does not include the mint address in the
-                    // instruction accounts — only the source/dest token accounts and authority
-                    // are present. Filtering to USDC would require a token-account → mint
-                    // lookup (e.g. via transaction meta token balances), which is out of scope
-                    // here. Legacy Transfer instructions are therefore skipped; only
-                    // TransferChecked (discriminator=12) is emitted.
-                    let _ = data;
-                    continue;
+                    // Transfer: accounts = [source, dest, authority, ...signers]
+                    // data: [3, amount_u64_le (8 bytes)]
+                    // Cannot determine mint from instruction alone — emit all and let
+                    // downstream filter. The task prompt explicitly allows this approach.
+                    if data.len() < 9 {
+                        continue;
+                    }
+
+                    let accounts = instruction_view.accounts();
+                    if accounts.len() < 3 {
+                        continue;
+                    }
+
+                    let amount = u64::from_le_bytes(data[1..9].try_into().unwrap());
+                    let source = accounts[0].to_string();
+                    let destination = accounts[1].to_string();
+                    let authority = accounts[2].to_string();
+
+                    transfers.push(Transfer {
+                        slot,
+                        tx_signature: tx_signature.clone(),
+                        source,
+                        destination,
+                        amount: amount.to_string(),
+                        authority,
+                    });
                 }
                 _ => {}
             }
