@@ -114,7 +114,7 @@ my-substreams/
 └── schema.sql               # your CREATE TABLE statements
 ```
 
-The `schema.sql` MUST define `cursors` and `substreams_history` tables on top of your application tables — the sink uses them for cursor + reorg state. The CLI generates a starter `schema.sql` for you:
+Your `schema.sql` contains your application tables. The `setup` command creates the sink's internal bookkeeping tables (`cursors`, `substreams_history`) automatically — you don't need to define them. Use `generate` to get a starter template with your domain tables pre-filled:
 
 ```bash
 substreams-sink-sql generate <DSN> ./my-substreams.spkg <module_name>
@@ -390,13 +390,13 @@ Error: module 'db_out' output type 'proto:my.types.v1.Events'
 
 Fix: the substreams module's output proto must EXACTLY match what the sink expects. See table above. For SQL specifically, you must use `db_out` returning `DatabaseChanges` — not your domain proto. The `substreams-sql` skill covers building this module.
 
-### 2. `schema.sql` missing `cursors` table → setup fails
+### 2. Hand-wrote `schema.sql` without running `generate` → missing domain tables
 
-The sink's setup step expects to create / find specific bookkeeping tables. If you hand-wrote `schema.sql` without them, run:
+`setup` auto-creates the sink's internal tables (`cursors`, `substreams_history`), but it won't know your application tables. If you skipped `generate`, your app tables won't exist. Run:
 ```bash
 substreams-sink-sql generate "$DSN" ./my-substreams.spkg <module>
 ```
-to regenerate, then merge your custom tables in.
+then add your custom table definitions and re-run `setup`.
 
 ### 3. Long-running sink container restarts at block 0 every time
 
