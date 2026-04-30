@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+package:
+  name: pumpfun_launches
+  version: v0.1.0
+  description: Tracks new token launches on pump.fun on Solana mainnet.
+
+protobuf:
+  files:
+    - pumpfun/v1/launches.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/pumpfun_launches.wasm
+
+modules:
+  - name: map_launches
+    kind: map
+    initialBlock: 320000000
+    inputs:
+      - source: sf.solana.type.v1.Block
+    output:
+      type: proto:pumpfun.v1.Launches
+
+network: solana

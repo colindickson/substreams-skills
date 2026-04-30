@@ -1,0 +1,103 @@
+specVersion: v0.1.0
+
+package:
+  name: cross-dex-volume
+  version: v0.1.0
+  description: Aggregated swap volume per pool per day across Uniswap V2 + V3 as subgraph entities
+
+network: mainnet
+
+protobuf:
+  files:
+    - dex_volume.proto
+    - entity.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/cross_dex_volume.wasm
+
+modules:
+  # Step 1: find pools with swaps this block and fetch their token metadata via RPC
+  - name: map_pool_tokens
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:dex.volume.v1.PoolTokenPairs
+    doc: |
+      Finds all V2 + V3 pools that emitted a Swap event this block and fetches
+      their token0/token1 metadata via RPC batch. Keyed by "<protocol>:<pool_address>"
+      to prevent cross-protocol collisions.
+
+  # Step 2: cache token metadata per pool (immutable — set_if_not_exists)
+  - name: store_pool_tokens
+    kind: store
+    initialBlock: 18000000
+    updatePolicy: set_if_not_exists
+    valueType: proto:dex.volume.v1.TokenPair
+    inputs:
+      - map: map_pool_tokens
+    doc: |
+      Caches TokenPair metadata keyed by "<protocol>:<pool_address>".
+      set_if_not_exists ensures RPC is called only once per pool ever.
+
+  # Step 3a: extract V2 swap volumes (reads metadata from store)
+  - name: map_v2_swaps
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pool_tokens
+        mode: get
+    output:
+      type: proto:dex.volume.v1.SwapVolumes
+    doc: |
+      Decodes Uniswap V2 Swap events. For each swap, looks up token1 metadata
+      from the store and emits |amount1| (max(amount1In, amount1Out)) as a SwapVolume.
+
+  # Step 3b: extract V3 swap volumes (reads metadata from store)
+  - name: map_v3_swaps
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pool_tokens
+        mode: get
+    output:
+      type: proto:dex.volume.v1.SwapVolumes
+    doc: |
+      Decodes Uniswap V3 Swap events. For each swap, looks up token1 metadata
+      from the store and emits |amount1| (signed int256, absolute value) as a SwapVolume.
+
+  # Step 4: accumulate volume per (protocol, pool, day) bucket
+  - name: store_daily_volume
+    kind: store
+    initialBlock: 18000000
+    updatePolicy: add
+    valueType: bigdecimal
+    inputs:
+      - map: map_v2_swaps
+      - map: map_v3_swaps
+    doc: |
+      Additive store: accumulates |amount1| / 10^decimals1 per key.
+      Key format: "<protocol>:<pool_address>:<day_bucket>"
+      where day_bucket = block_timestamp / 86400.
+      V2 and V3 pools get distinct key prefixes, preventing same-address collision.
+
+  # Step 5: derive subgraph EntityChanges from store deltas
+  - name: graph_out
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - store: store_daily_volume
+        mode: deltas
+    output:
+      type: proto:sf.substreams.sink.entity.v1.EntityChanges
+    doc: |
+      Reads store_daily_volume deltas to emit PoolDayVolume EntityChanges.
+      First write to a key = CREATE; subsequent writes = UPDATE.
+      Entity ID = "<protocol>:<pool_address>:<day_bucket>" (unique per protocol).

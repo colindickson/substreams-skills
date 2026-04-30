@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+package:
+  name: block_stats
+  version: v0.1.0
+  description: Per-block stats (tx count, gas used, base fee) on Ethereum mainnet.
+
+protobuf:
+  files:
+    - stats.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/block_stats.wasm
+
+modules:
+  - name: map_block_stats
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:eth.stats.v1.BlockStats
+
+network: mainnet

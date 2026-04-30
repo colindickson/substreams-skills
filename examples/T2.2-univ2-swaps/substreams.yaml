@@ -1,0 +1,46 @@
+specVersion: v0.1.0
+
+package:
+  name: univ2_swaps
+  version: v0.1.0
+  description: Tracks Uniswap V2 swaps with token metadata cached in a store
+
+network: mainnet
+
+protobuf:
+  files:
+    - uniswap_v2.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/univ2_swaps.wasm
+
+modules:
+  - name: map_pool_events
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:uniswap.v2.PoolEvents
+
+  - name: store_pool_tokens
+    kind: store
+    initialBlock: 18000000
+    updatePolicy: set_if_not_exists
+    valueType: string
+    inputs:
+      - map: map_pool_events
+
+  - name: map_swaps
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - map: map_pool_events
+      - store: store_pool_tokens
+        mode: get
+    output:
+      type: proto:uniswap.v2.Swaps

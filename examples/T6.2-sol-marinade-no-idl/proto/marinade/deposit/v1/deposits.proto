@@ -1,0 +1,13 @@
+syntax = "proto3";
+package marinade.deposit.v1;
+
+message Deposit {
+  uint64 slot = 1;
+  string signature = 2;
+  string user_wallet = 3;
+  string sol_amount = 4;
+}
+
+message Deposits {
+  repeated Deposit deposits = 1;
+}

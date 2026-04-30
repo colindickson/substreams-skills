@@ -1,0 +1,27 @@
+specVersion: v0.1.0
+package:
+  name: marinade-deposits
+  version: v0.1.0
+  description: Tracks Marinade Finance deposit instructions on Solana mainnet.
+
+protobuf:
+  files:
+    - marinade/deposit/v1/deposits.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/marinade_deposits.wasm
+
+modules:
+  - name: map_deposits
+    kind: map
+    initialBlock: 250000000
+    inputs:
+      - source: sf.solana.type.v1.Block
+    output:
+      type: proto:marinade.deposit.v1.Deposits
+
+network: solana

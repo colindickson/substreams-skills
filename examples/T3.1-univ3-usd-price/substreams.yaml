@@ -1,0 +1,55 @@
+specVersion: v0.1.0
+
+package:
+  name: univ3-usd-price
+  version: v0.1.0
+  description: Uniswap V3 swaps with USD price computation on Ethereum mainnet
+
+network: mainnet
+
+protobuf:
+  files:
+    - uniswap_v3.proto
+  importPaths:
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/univ3_usd_price.wasm
+
+modules:
+  - name: map_pool_tokens
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:uniswap.v3.swaps.PoolTokenPairs
+    doc: |
+      For each block, finds all pools that emitted a Swap event and fetches
+      their token0/token1 metadata via RPC batch calls.
+
+  - name: store_pool_tokens
+    kind: store
+    initialBlock: 18000000
+    updatePolicy: set_if_not_exists
+    valueType: proto:uniswap.v3.swaps.TokenPair
+    inputs:
+      - map: map_pool_tokens
+    doc: |
+      Caches token pair metadata keyed by pool address. Only writes once per pool
+      (set_if_not_exists) so RPC cost is paid only the first time a pool appears.
+
+  - name: map_swaps
+    kind: map
+    initialBlock: 18000000
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pool_tokens
+        mode: get
+    output:
+      type: proto:uniswap.v3.swaps.SwapEvents
+    doc: |
+      For each Swap event, retrieves cached token metadata from the store,
+      computes the sqrtPriceX96-derived price and USD price, and emits a SwapEvent.

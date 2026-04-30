@@ -89,6 +89,17 @@ VS Code 1.107+ supports Claude Skills (experimental feature):
 
 See [VS Code 1.107 release notes](https://code.visualstudio.com/updates/v1_107#_reuse-your-claude-skills-experimental) for details.
 
+## Guides
+
+Setup guides for various editors live under [`guides/`](./guides/).
+
+## Examples & Evaluation
+
+Real Substreams projects an agent built end-to-end from a natural-language prompt, using these skills:
+
+- [`examples/`](./examples/) — 16 example directories (14 working case studies + 2 cautionary tales; Ethereum + Solana, single-map to multi-module, SQL sink, Anchor, no-ABI/no-IDL flows)
+- [`EVAL.md`](./EVAL.md) — one-page summary of the test pass: 100% build/run, 12/14 byte-match correctness on the best trial
+
 ## Plugin Structure
 
 ```

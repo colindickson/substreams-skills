@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package eth.stats.v1;
+
+message BlockStats {
+  uint64 number = 1;
+  uint64 tx_count = 2;
+  uint64 gas_used = 3;
+  string base_fee = 4;
+}

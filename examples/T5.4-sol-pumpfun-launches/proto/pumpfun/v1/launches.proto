@@ -1,0 +1,17 @@
+syntax = "proto3";
+package pumpfun.v1;
+
+message Launch {
+  uint64 slot = 1;
+  string signature = 2;
+  string mint = 3;
+  string name = 4;
+  string symbol = 5;
+  string creator = 6;
+  string initial_virtual_sol_reserves = 7;
+  string initial_virtual_token_reserves = 8;
+}
+
+message Launches {
+  repeated Launch launches = 1;
+}

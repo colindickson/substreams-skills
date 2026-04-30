@@ -1,0 +1,25 @@
+[workspace]
+
+[package]
+name = "usdc_sql_sink"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+substreams = "0.7"
+substreams-ethereum = "0.11"
+substreams-database-change = "4"
+prost = "0.13"
+prost-types = "0.13"
+hex = "0.4"
+
+[build-dependencies]
+prost-build = "0.13"
+
+[profile.release]
+lto = true
+opt-level = "s"
+strip = "debuginfo"

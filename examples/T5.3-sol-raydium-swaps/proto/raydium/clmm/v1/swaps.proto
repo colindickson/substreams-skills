@@ -1,0 +1,16 @@
+syntax = "proto3";
+package raydium.clmm.v1;
+
+message Swap {
+  uint64 slot = 1;
+  string signature = 2;
+  string pool = 3;
+  string input_amount = 4;
+  string output_amount = 5;
+  bool zero_for_one = 6;
+  int32 tick_after = 7;
+}
+
+message Swaps {
+  repeated Swap swaps = 1;
+}

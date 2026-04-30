@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package uniswap.v3.swaps;
+
+// Cached token metadata for a pool
+message TokenPair {
+  string token0_address = 1;
+  string token0_symbol = 2;
+  uint32 token0_decimals = 3;
+  string token1_address = 4;
+  string token1_symbol = 5;
+  uint32 token1_decimals = 6;
+}
+
+// Emitted by map_pool_tokens: token pairs discovered in this block
+message PoolTokenPairs {
+  repeated PoolTokenEntry entries = 1;
+}
+
+message PoolTokenEntry {
+  string pool_address = 1;
+  TokenPair pair = 2;
+}
+
+// Final swap output
+message SwapEvent {
+  string pool_address = 1;
+  string token0_address = 2;
+  string token0_symbol = 3;
+  uint32 token0_decimals = 4;
+  string token1_address = 5;
+  string token1_symbol = 6;
+  uint32 token1_decimals = 7;
+  string amount0 = 8;
+  string amount1 = 9;
+  string price_token0_in_token1 = 10;
+  string usd_price_token0 = 11;
+  string tx_hash = 12;
+  uint32 log_index = 13;
+  uint64 block_number = 14;
+}
+
+message SwapEvents {
+  repeated SwapEvent swaps = 1;
+}

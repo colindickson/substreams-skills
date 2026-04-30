@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package uniswap.v2;
+
+// Emitted by map_pool_events: raw Swap events keyed with pool address
+message PoolEvents {
+  repeated PoolSwapEvent events = 1;
+}
+
+message PoolSwapEvent {
+  string pool_address = 1;
+  // Raw amounts as decimal strings (not yet scaled)
+  string amount0_in = 2;
+  string amount1_in = 3;
+  string amount0_out = 4;
+  string amount1_out = 5;
+  string sender = 6;
+  string recipient = 7;
+  string transaction_hash = 8;
+  uint32 log_index = 9;
+  uint64 block_number = 10;
+}
+
+// Emitted by map_swaps: final human-readable swap records
+message Swaps {
+  repeated Swap swaps = 1;
+}
+
+message Swap {
+  string pool_address = 1;
+  string token0_address = 2;
+  string token0_symbol = 3;
+  uint32 token0_decimals = 4;
+  string token1_address = 5;
+  string token1_symbol = 6;
+  uint32 token1_decimals = 7;
+  string amount0_in = 8;
+  string amount1_in = 9;
+  string amount0_out = 10;
+  string amount1_out = 11;
+  string sender = 12;
+  string recipient = 13;
+  string transaction_hash = 14;
+  uint32 log_index = 15;
+  uint64 block_number = 16;
+}

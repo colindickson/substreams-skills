@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package univ2.swaps.v1;
+
+message SwapEvents {
+  repeated SwapEvent swaps = 1;
+}
+
+message SwapEvent {
+  string tx_hash = 1;
+  uint64 log_index = 2;
+  string sender = 3;
+  string to = 4;
+  string amount0_in = 5;
+  string amount1_in = 6;
+  string amount0_out = 7;
+  string amount1_out = 8;
+  uint64 block_number = 9;
+}

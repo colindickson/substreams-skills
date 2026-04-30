@@ -1,0 +1,15 @@
+syntax = "proto3";
+package sol.v1;
+
+message Transfer {
+  uint64 slot = 1;
+  string tx_signature = 2;
+  string source = 3;
+  string destination = 4;
+  string amount = 5;
+  string authority = 6;
+}
+
+message Transfers {
+  repeated Transfer transfers = 1;
+}
