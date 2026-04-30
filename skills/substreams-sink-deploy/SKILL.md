@@ -369,13 +369,13 @@ For `EntityChanges` proto setup and module patterns → use the `substreams-dev`
 
 | You want                                           | Pick                                |
 |----------------------------------------------------|-------------------------------------|
-| Zero ops, paid managed Postgres                    | StreamingFast hosted (sales@streamingfast.io) / Pinax |
+| Zero ops, managed Postgres (not yet released)      | StreamingFast hosted (sales@streamingfast.io) / Pinax |
 | Free, you manage the box                           | Self-host `substreams-sink-sql`     |
 | Subgraph on The Graph network                       | Substreams-powered Subgraph (decentralized) |
 | Files into your data lake                          | Self-host `substreams-sink-files`   |
 | Push events to your existing app                   | Stream SDK (`substreams-sink` skill) |
 
-**No public self-service deploy CLI exists today.** Hosted = email + onboarding. Track https://docs.substreams.dev/how-to-guides/sinks for changes.
+**Hosted sink is not yet released.** Track https://docs.substreams.dev/how-to-guides/sinks for availability updates.
 
 ---
 
