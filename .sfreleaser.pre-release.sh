@@ -30,6 +30,11 @@ main() {
   # Update package.json version
   sd '"version": ".*?"' "\"version\": \"${version}\"" package.json
 
+  # Update Claude Code plugin manifest version
+  if [[ -f .claude-plugin/plugin.json ]]; then
+    sd '"version": ".*?"' "\"version\": \"${version}\"" .claude-plugin/plugin.json
+  fi
+
   # Update all SKILL.md files in skills/ directory
   for skill_file in skills/*/SKILL.md; do
     if [[ -f "$skill_file" ]]; then
@@ -89,6 +94,7 @@ usage() {
   echo ""
   echo "This script will update the following files with the new version:"
   echo "  - package.json: Updates the 'version' field to <version>"
+  echo "  - .claude-plugin/plugin.json: Updates the 'version' field to <version>"
   echo "  - skills/*/SKILL.md: Updates the 'version' field in metadata to <version>"
   echo "  - CHANGELOG.md: Replaces '## [Unreleased]' with '## <version>'"
   echo ""
