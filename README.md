@@ -30,6 +30,21 @@ Expert knowledge for building SQL database sinks from Substreams data. Covers bo
 - **ClickHouse** - Analytics-optimized schemas, materialized views, and time-series patterns
 - **Schema Design** - Best practices for blockchain data modeling
 
+### ✅ Substreams Sink (`substreams-sink`)
+Expert knowledge for consuming Substreams data in custom applications. Use when integrating Substreams outputs directly into Go, JavaScript, Python, or Rust code:
+- **Go sink** — cursor management, reorg handling, gRPC streaming
+- **JavaScript sink** — Node.js integration and event handling
+- **Python / Rust** — SDK usage and production patterns
+
+### ✅ Substreams Sink Deployment (`substreams-sink-deploy`)
+Expert operational guide for running and deploying Substreams sink binaries. Covers:
+- **Sink selection** — decision tree for SQL, Files, PubSub, Webhook, ProtoJSON, Subgraph
+- **SQL sink** — DSN formats, schema setup, cursor management, reorg handling (Postgres + ClickHouse)
+- **Files sink** — CSV/Parquet to S3, GCS, or local storage
+- **PubSub / Webhook** — event streaming and HTTP delivery
+- **Production patterns** — backfill + live tailing, monitoring, restart safety
+- **Common pitfalls** — wrong proto type, missing domain tables/schema.sql, PK mismatch, batch flush tuning
+
 ### ✅ Substreams Testing (`substreams-testing`)
 Expert knowledge for testing Substreams applications at all levels. Complete testing strategy:
 - **Unit Testing** - Testing individual functions with real blockchain data
@@ -59,6 +74,7 @@ Validate that everything works properly by running `/skills` within `claude`, se
 Plugin skills (plugin)
 substreams-dev · ~58 description tokens
 substreams-sink · ~57 description tokens
+substreams-sink-deploy · ~62 description tokens
 substreams-sql · ~48 description tokens
 substreams-testing · ~43 description tokens
 ```
@@ -114,6 +130,10 @@ substreams-skills/
     │       ├── module-types.md
     │       ├── networks.md
     │       └── patterns.md
+    ├── substreams-sink/
+    │   └── SKILL.md
+    ├── substreams-sink-deploy/
+    │   └── SKILL.md
     ├── substreams-sql/
     │   ├── SKILL.md
     │   └── references/
