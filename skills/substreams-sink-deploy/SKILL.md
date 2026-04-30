@@ -1,6 +1,6 @@
 ---
 name: substreams-sink-deploy
-description: Use when the user wants to RUN, DEPLOY, or OPERATE a Substreams sink — i.e. take a built `.spkg` and pipe its data into a destination. Triggers on "run substreams-sink-sql", "deploy my substreams to Postgres", "set up substreams-sink-files", "publish to PubSub", "stream to S3", "deploy hosted sink", "start the sink binary". Covers sink CLIs and commands (substreams-sink-sql, -files, -pubsub, and `substreams sink webhook`), schema setup, cursor management, reorg handling, hosted vs self-hosted decision, batch flush tuning, and common pitfalls. Distinct from substreams-sql (which covers BUILDING the db_out Rust module — its proto, table mappings, and Rust APIs). Use this skill AFTER the .spkg is already built.
+description: Use when the user wants to run, deploy, or operate a Substreams sink — take a built .spkg and pipe its data into a destination (Postgres, ClickHouse, files, PubSub, webhook). Covers sink CLIs, schema setup, cursor management, reorg handling, and production operations. Distinct from substreams-sql (building the db_out Rust module) and substreams-sink (SDK-level app integration).
 license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
@@ -445,16 +445,16 @@ You changed your `.spkg` and now the sink errors:
 module hash mismatch: cursor was for hash X, current module is hash Y
 ```
 
-The cursor pins a specific module-hash to detect drift. Two options:
+The cursor pins a specific module-hash to detect drift. Two options to override:
 ```bash
-# Restart from the cursor's block, ignoring hash change (data may be inconsistent)
+# Log a warning but continue from the existing cursor (data may be inconsistent)
 substreams-sink-sql run ... --on-module-hash-mismatch=warn
 
-# Or reset the cursor — sink starts from scratch
+# Same as warn but silently — still continues from existing cursor, no reset
 substreams-sink-sql run ... --on-module-hash-mismatch=ignore
 ```
 
-For accuracy, prefer wiping the destination and re-running rather than `ignore` — partial data from the old module hash mixed with new data is a debugging nightmare.
+Neither flag resets the cursor. Both continue from where the old module left off, mixing old and new data — a debugging nightmare if your schema or logic changed. For a clean restart, wipe the destination manually and re-run from the original start block.
 
 ### 9. PubSub "permission denied"
 
