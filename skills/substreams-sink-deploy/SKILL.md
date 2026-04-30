@@ -504,14 +504,15 @@ Kill -9 the sink mid-batch. Restart. Sink reads cursor → resumes at last commi
 ```bash
 # Prereqs
 export SUBSTREAMS_API_KEY=server_xxx
-export DSN="postgres://user:pass@localhost:5432/mydb?sslmode=disable"   # postgres:// works for both sink and psql client
+export DSN="psql://user:pass@localhost:5432/mydb?sslmode=disable"       # sink DSN (psql:// or postgres://)
+export PSQL_DSN="postgresql://user:pass@localhost:5432/mydb?sslmode=disable"  # for psql client
 
 # 0. Get a working substreams package with a db_out module
 #    (see substreams-sql skill for the build side)
 
 # 1. Generate schema.sql template
 substreams-sink-sql generate "$DSN" ./erc20.spkg db_out > schema.sql
-# Edit schema.sql to add your domain tables (the sink-managed cursors/history tables are pre-generated)
+# Edit schema.sql to add your domain tables (setup auto-creates the internal cursors/substreams_history tables)
 
 # 2. Create DB tables
 substreams-sink-sql setup "$DSN" ./erc20.spkg
@@ -524,7 +525,7 @@ substreams-sink-sql run "$DSN" \
     --metrics-listen-addr=:9100
 
 # 4. Query
-psql "$DSN" -c "SELECT count(*) FROM erc20_transfers"
+psql "$PSQL_DSN" -c "SELECT count(*) FROM erc20_transfers"
 ```
 
 ---
