@@ -36,7 +36,7 @@ The skill's "Common Pitfalls" section covered all three issues that surfaced dur
 
 ```bash
 docker run -d -p 5436:5432 -e POSTGRES_PASSWORD=secret postgres:15
-go install github.com/streamingfast/substreams-sink-sql/cmd/substreams-sink-sql@latest  # v4.13.1 tested
+go install github.com/streamingfast/substreams-sink-sql/cmd/substreams-sink-sql@v4.13.1
 
 # Build the .spkg from the T2.3 example first
 substreams-sink-sql setup "psql://postgres:secret@localhost:5436/postgres?sslmode=disable" usdc-sql-sink-v0.1.0.spkg

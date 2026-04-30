@@ -6,7 +6,9 @@
 
 ## Goal
 
-Track all SPL Token transfers of USDC on Solana mainnet. Emit slot, signature, source/destination token accounts, raw u64 amount, signing authority.
+Track SPL Token `TransferChecked` instructions for USDC on Solana mainnet. Emit slot, signature, source/destination token accounts, raw u64 amount, signing authority.
+
+**Note:** Only `TransferChecked` (discriminator=12) is handled. Legacy `Transfer` (discriminator=3) instructions omit the mint address from the instruction accounts, making USDC filtering impossible at the instruction level without a token-account → mint lookup. In practice, modern USDC transfers use `TransferChecked`.
 
 USDC mint: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
 SPL Token program: `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`

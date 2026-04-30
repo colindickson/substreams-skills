@@ -6,7 +6,9 @@
 
 ## Goal
 
-Track swaps on Raydium Concentrated Liquidity Market Maker (program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`). Emit slot, signature, pool, input/output amounts (raw u64 strings), direction, post-swap tick.
+Track swaps on Raydium Concentrated Liquidity Market Maker (program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`). Emit slot, signature, pool, input amount (raw u64 string), direction.
+
+**Note:** `output_amount` and `tick_after` are emitted as `"0"` / `0`. Raydium CLMM emits these via Anchor program logs (not instruction data), and parsing the runtime `SwapEvent` struct layout from raw log bytes is fragile without an IDL. The example focuses on input-amount + direction extraction from instruction data, which is stable.
 
 Raydium uses Anchor — `swap` and `swap_v2` instructions are dispatched by 8-byte discriminators.
 

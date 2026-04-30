@@ -6,7 +6,9 @@
 
 ## Goal
 
-Track Uniswap V3 swaps. For each swap, compute USD price using sqrtPriceX96 + token decimals. If the pool contains a USD-pegged stable (USDC/USDT/DAI), report token0's USD price; otherwise emit `null`.
+Track Uniswap V3 swaps. For each swap, compute USD price using sqrtPriceX96 + token decimals. If the pool contains a USD-pegged stable (USDC/USDT/DAI), report token0's USD price; otherwise emit an empty string.
+
+**Note:** `usd_price_token0` is a proto3 `string` field — it is an empty string (not JSON `null`) when no stablecoin is present in the pool.
 
 ## Prompt
 

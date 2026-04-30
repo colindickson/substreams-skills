@@ -1,8 +1,8 @@
 # Examples
 
-Real Substreams projects an agent built end-to-end from a natural-language prompt, using these skills. Each folder contains the prompt, the agent's resulting code, and a brief on what worked and what didn't.
+Examples produced from natural-language prompts using these skills. Some folders contain end-to-end Substreams projects (buildable + runnable); others are writeups or operational notes documenting what the agent did, what worked, and what didn't.
 
-All runs use `claude-sonnet-4-6`. Code in each example is reproducible: `cd` into the folder and `substreams build`.
+All runs use `claude-sonnet-4-6`. For the buildable Substreams project examples, the code is reproducible: `cd` into the folder and `substreams build`.
 
 ## Ethereum
 
