@@ -37,7 +37,7 @@ Expert operational guide for running and deploying Substreams sink binaries. Cov
 - **Files sink** — CSV/Parquet to S3, GCS, or local storage
 - **PubSub / Webhook** — event streaming and HTTP delivery
 - **Production patterns** — backfill + live tailing, monitoring, restart safety
-- **Common pitfalls** — wrong proto type, missing cursors table, PK mismatch, batch flush tuning
+- **Common pitfalls** — wrong proto type, missing domain tables/schema.sql, PK mismatch, batch flush tuning
 
 ### ✅ Substreams Testing (`substreams-testing`)
 Expert knowledge for testing Substreams applications at all levels. Complete testing strategy:
@@ -113,6 +113,8 @@ substreams-skills/
     │       ├── module-types.md
     │       ├── networks.md
     │       └── patterns.md
+    ├── substreams-sink/
+    │   └── SKILL.md
     ├── substreams-sink-deploy/
     │   └── SKILL.md
     ├── substreams-sql/
