@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 0.1.3
+  version: 1.0.3
   author: StreamingFast
   documentation: https://docs.substreams.dev/how-to-guides/sinks
 ---
@@ -153,7 +153,7 @@ substreams-sink-sql run "$DSN" \
 # substreams-sink-sql run "$DSN" ./my-substreams.spkg "12000000:+1000000"
 ```
 
-Required env: `SUBSTREAMS_API_KEY` set to your StreamingFast API key.
+Auth required: set `SUBSTREAMS_API_KEY` (new accounts) or `SUBSTREAMS_API_TOKEN` (JWT/legacy accounts). See pitfall #5 for details.
 
 > **CLI arg order matters and is non-obvious.** Endpoint is a `-e/--endpoint` flag, NOT positional. The module name is positional but optional — only required if your `.spkg` has multiple sink-compatible output modules (rare). Block range syntax: `START:STOP` or `START:+N` for N blocks forward, or omit STOP for open-ended live tailing.
 
@@ -188,7 +188,7 @@ For tasks that must NEVER see uncommitted data (e.g. accounting, balances), use 
 
 ### Hosted SQL sink
 
-StreamingFast offers managed Postgres sinks. There is **no public self-service deploy** — email `sales@streamingfast.io` with your `.spkg` and DSN target. Pinax also offers managed substreams-sink-sql; see https://pinax.network.
+> **TODO:** Hosted sink not yet released. Check https://docs.substreams.dev/how-to-guides/sinks for availability updates.
 
 ---
 
@@ -535,6 +535,4 @@ psql "$DSN" -c "SELECT count(*) FROM erc20_transfers"
 - SQL sink: https://github.com/streamingfast/substreams-sink-sql
 - Files sink: https://github.com/streamingfast/substreams-sink-files
 - PubSub sink: https://github.com/streamingfast/substreams-sink-pubsub
-- Hosted: sales@streamingfast.io
-- Pinax: https://pinax.network
 - The Graph (subgraphs): https://thegraph.com/docs/en/cookbook/substreams-powered-subgraphs/
