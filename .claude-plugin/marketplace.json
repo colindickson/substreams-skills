@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "streamingfast-substreams",
-  "description": "StreamingFast Substreams agent skills for Claude Code — expert knowledge for developing, testing, and deploying high-performance blockchain data indexing on any EVM, Solana, or NEAR chain.",
+  "description": "StreamingFast Substreams agent skills for Claude Code — expert knowledge for developing, testing, and deploying high-performance blockchain data indexing on any EVM, Solana, NEAR, or other blockchains.",
   "owner": {
     "name": "StreamingFast",
     "email": "info@streamingfast.io"
@@ -10,7 +10,7 @@
     {
       "name": "substreams-dev",
       "source": "./",
-      "description": "Agent skills for Substreams development — build, debug, and deploy high-performance blockchain data indexing and transformation on EVM, Solana, and NEAR chains using Rust modules and protobuf schemas.",
+      "description": "Agent skills for Substreams development — build, debug, and deploy high-performance blockchain data indexing and transformation on EVM, Solana, NEAR and other blockchains using Rust modules and protobuf schemas.",
       "category": "development",
       "author": {
         "name": "StreamingFast",
