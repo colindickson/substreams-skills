@@ -819,14 +819,18 @@ jobs:
 
     - name: Install Substreams CLI
       run: |
-        # Install latest substreams CLI
-        curl -sSL https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz | tar -xz
+        # Pin to a specific release version and verify before extracting
+        curl -sSLo substreams.tar.gz https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz
+        tar -xzf substreams.tar.gz substreams
         sudo mv substreams /usr/local/bin/
+        rm substreams.tar.gz
 
     - name: Download test fixtures
       run: |
         mkdir -p fixtures
-        curl -L https://github.com/your-org/substreams-fixtures/releases/download/v1.0/ethereum-blocks.tar.gz | tar -xz -C fixtures/
+        curl -sSLo fixtures.tar.gz https://github.com/your-org/substreams-fixtures/releases/download/v1.0/ethereum-blocks.tar.gz
+        tar -xzf fixtures.tar.gz -C fixtures/
+        rm fixtures.tar.gz
 
     - name: Build Substreams
       run: substreams build

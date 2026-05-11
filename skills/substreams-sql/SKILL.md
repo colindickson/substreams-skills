@@ -368,7 +368,7 @@ services:
     environment:
       POSTGRES_DB: substreams
       POSTGRES_USER: substreams
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -379,14 +379,17 @@ volumes:
   postgres_data:
 ```
 
+Set `POSTGRES_PASSWORD` in a `.env` file (never commit it) or via your shell before running `docker compose up`.
+
 **Running the Sink**:
 ```bash
 # The DSN is passed as a CLI argument, not in the manifest
-substreams-sink-sql setup "psql://substreams:password@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
-substreams-sink-sql run "psql://substreams:password@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
+# For local development (sslmode=disable is only safe on localhost):
+substreams-sink-sql setup "psql://substreams:${POSTGRES_PASSWORD}@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
+substreams-sink-sql run "psql://substreams:${POSTGRES_PASSWORD}@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
 
 # Development mode (allows re-processing):
-substreams-sink-sql run --development-mode "psql://substreams:password@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
+substreams-sink-sql run --development-mode "psql://substreams:${POSTGRES_PASSWORD}@localhost:5432/substreams?sslmode=disable" ./my-substreams.spkg
 ```
 
 ### PostgreSQL-Specific Features
@@ -579,7 +582,7 @@ SOURCE(POSTGRESQL(
     host 'postgres'
     port 5432
     user 'substreams'
-    password 'password'
+    password '<your-db-password>'
     db 'substreams'
     table 'token_metadata'
 ))
