@@ -57,10 +57,10 @@ Visit [thegraph.market/auth/substreams-devenv](https://thegraph.market/auth/subs
 **Environment Variables (Alternative):**
 ```bash
 # Set API key (recommended)
-export SUBSTREAMS_API_KEY="your-api-key"
+export SUBSTREAMS_API_KEY=<your-api-key>
 
 # Or set bearer token directly
-export SUBSTREAMS_API_TOKEN="your-jwt-token"
+export SUBSTREAMS_API_TOKEN=<your-jwt-token>
 ```
 
 The `substreams auth` command handles token exchange and local storage automatically.
