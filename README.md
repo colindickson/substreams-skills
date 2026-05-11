@@ -60,8 +60,8 @@ Expert knowledge for testing Substreams applications at all levels. Complete tes
 To install the plugin (which pulls the skills):
 
 ```bash
-claude plugin marketplace add https://github.com/streamingfast/substreams-skills
-claude plugin install substreams-dev
+claude plugin marketplace add streamingfast/substreams-skills
+claude plugin install substreams-dev@streamingfast-substreams
 ```
 
 Or use the `/plugin` interactive flow directly within `claude`.
