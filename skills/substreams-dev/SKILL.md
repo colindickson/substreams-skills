@@ -3,7 +3,7 @@ name: substreams-dev
 description: Expert knowledge for developing, building, and debugging Substreams projects on any blockchain. Use when working with substreams.yaml manifests, Rust modules, protobuf schemas, or blockchain data processing.
 license: Apache-2.0
 compatibility:
-  platforms: [claude-code, cursor, vscode, windsurf]
+  platforms: [claude-code, cursor, opencode, vscode, windsurf]
 metadata:
   version: 1.1.0
   author: StreamingFast
@@ -106,9 +106,9 @@ Visit [thegraph.market/auth/substreams-devenv](https://thegraph.market/auth/subs
 
 **Environment Variables (Alternative):**
 ```bash
-export SUBSTREAMS_API_KEY=<your-api-key>
+export SUBSTREAMS_API_KEY="your-api-key"
 # Or set bearer token directly
-export SUBSTREAMS_API_TOKEN=<your-jwt-token>
+export SUBSTREAMS_API_TOKEN="your-jwt-token"
 ```
 
 The `substreams auth` command handles token exchange and local storage automatically, making it the easiest way to get started.
@@ -841,10 +841,10 @@ let new_value = process(&trx.value); // Process reference, create new value
 Use `substreams run` with timing to measure performance:
 
 ```bash
-# Test with cloning (slow)
-time substreams run -s 17000000 -t +1000 map_events
+# Test with cloning (slow) — uses map_events_with_clone branch or a version with clone calls
+time substreams run -s 17000000 -t +1000 map_events_slow
 
-# Test without cloning (fast)
+# Test without cloning (fast) — same logic, ownership/references used instead
 time substreams run -s 17000000 -t +1000 map_events
 
 # You should see significant speedup (2-10x) by avoiding clones
@@ -852,10 +852,10 @@ time substreams run -s 17000000 -t +1000 map_events
 
 ### Remember
 
-* 🎯 **Measure performance impact**: Use timing with `substreams run` to identify bottlenecks
-* 🎯 **Clone only when necessary**: Most of the time, borrowing is sufficient
-* 🎯 **Block cloning is almost never needed**: This is the #1 performance killer
-* 🎯 **Transaction cloning should be rare**: Extract only the data you need
+* **Measure performance impact**: Use timing with `substreams run` to identify bottlenecks
+* **Clone only when necessary**: Most of the time, borrowing is sufficient
+* **Block cloning is almost never needed**: This is the #1 performance killer
+* **Transaction cloning should be rare**: Extract only the data you need
 
 ## Common Patterns
 
@@ -898,9 +898,9 @@ Read the first line of output to get the head block information.
 ## Development Tips
 
 1. **Start small**: Begin with 1000 block range for testing
-1. **Use GUI**: `substreams gui` for visual debugging (when available)
-1. **Version control**: Commit `.spkg` files for reproducibility
-1. **Document modules**: Add `doc:` fields in manifest for clarity
+2. **Use GUI**: `substreams gui` for visual debugging (when available)
+3. **Version control**: Commit `.spkg` files for reproducibility
+4. **Document modules**: Add `doc:` fields in manifest for clarity
 
 ## Troubleshooting
 
@@ -959,7 +959,7 @@ Key facts to avoid the most common mistake:
 
 ### Quick pattern (full example in substreams-sink skill)
 
-Do NOT add `substreams-entity-change = "1"` to Cargo.toml — v1 has a `prost` version conflict with the current toolchain. Instead, inline the proto:
+Do NOT add `substreams-entity-change = "1"` to Cargo.toml — v1 has a `prost` version conflict with the current toolchain (prost 0.13). Check [crates.io](https://crates.io/crates/substreams-entity-change) to see if a newer version resolves this before inlining the proto. Instead, inline the proto:
 
 **`proto/entity.proto`** (exact package name required):
 ```proto
