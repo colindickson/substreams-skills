@@ -842,9 +842,9 @@ Use `substreams run` with timing to measure performance:
 
 ```bash
 # Test with cloning (slow) — uses map_events_with_clone branch or a version with clone calls
-time substreams run -s 17000000 -t +1000 map_events_slow
+time substreams run -s 17000000 -t +1000 map_events
 
-# Test without cloning (fast) — same logic, ownership/references used instead
+# Test without cloning (fast) — same logic, ownership/references used instead. Re-runs the same command:
 time substreams run -s 17000000 -t +1000 map_events
 
 # You should see significant speedup (2-10x) by avoiding clones
