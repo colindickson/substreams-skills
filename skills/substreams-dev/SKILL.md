@@ -149,6 +149,8 @@ immediately.
 
 ### Creating a New Project
 
+> **Migrating an existing project?** Load the **`substreams-convert` skill** if you are porting a subgraph or Solana program/contract to Substreams instead of starting from scratch.
+
 1. **Initialize**: Use `substreams init` or create manifest manually
 2. **Define schema**: Create `.proto` files for your data structures
 3. **Implement modules**: Write Rust handlers in `src/lib.rs`
