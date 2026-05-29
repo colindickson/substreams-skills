@@ -212,28 +212,70 @@ if !KNOWN_TOKENS.contains(&log.address()) {
 }
 ```
 
-### 4. Migrating Entity Storage (store modules)
+### 4. Migrating Entity Storage — SQL Sink (Postgres / ClickHouse)
 
-Subgraphs persist entities automatically; Substreams uses explicit `store` modules.
+The recommended way to persist subgraph entity data in Substreams is the **SQL sink** (Postgres or ClickHouse), using the `db_out` module pattern with `DatabaseChanges`. This replaces subgraph's auto-managed entity store and gives you a full relational database with SQL Delta support — ideal for subgraph migrations.
 
-**Subgraph — accumulated balance entity:**
+> **`store` modules** are still used in Substreams, but for a specific purpose: caching intermediate state that other modules need to read during processing (e.g. tracking dynamically discovered contract addresses — see Section 6). They are not the replacement for subgraph entity persistence. Use `db_out` + SQL sink for that.
 
-```typescript
-export function handleTransfer(event: TransferEvent): void {
-  let balance = Balance.load(event.params.to.toHexString());
-  if (balance == null) {
-    balance = new Balance(event.params.to.toHexString());
-    balance.amount = BigDecimal.fromString("0");
-  }
-  balance.amount = balance.amount.plus(event.params.value.toBigDecimal());
-  balance.save();
+#### Step 4a — Define the SQL schema
+
+Create a `schema.sql` that mirrors your subgraph's `schema.graphql` entities:
+
+**Before (GraphQL SDL):**
+```graphql
+type Balance @entity {
+  id: ID!
+  address: String!
+  amount: BigDecimal!
 }
 ```
 
-**Substreams — explicit store module:**
+**After (`schema.sql`):**
+```sql
+CREATE TABLE IF NOT EXISTS balances (
+    id         TEXT NOT NULL,
+    address    TEXT NOT NULL,
+    amount     NUMERIC NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+```
+
+#### Step 4b — Add `substreams-database-change` and emit `DatabaseChanges`
+
+Add to `Cargo.toml`:
+```toml
+substreams-database-change = "4"
+```
+
+Add a `db_out` map module that converts your map output into database change records:
+
+```rust
+use substreams::store::{DeltaBigDecimal, Deltas};
+use substreams_database_change::pb::database::{DatabaseChanges, TableChange};
+use substreams_database_change::tables::Tables;
+
+#[substreams::handlers::map]
+pub fn db_out(
+    transfers: Transfers,
+) -> Result<DatabaseChanges, substreams::errors::Error> {
+    let mut tables = Tables::new();
+
+    for transfer in transfers.transfers {
+        // Upsert a balance row — SQL Delta handles CREATE vs UPDATE automatically
+        tables
+            .update_row("balances", &transfer.to)
+            .set("address", &transfer.to)
+            .set_bigdecimal("amount", &transfer.amount.parse().unwrap_or_default());
+    }
+
+    Ok(tables.to_database_changes())
+}
+```
+
+#### Step 4c — Wire `db_out` in the manifest
 
 ```yaml
-# substreams.yaml
 modules:
   - name: map_transfers
     kind: map
@@ -243,138 +285,42 @@ modules:
     output:
       type: proto:myproject.v1.Transfers
 
-  - name: store_balances
-    kind: store
-    initialBlock: 6082465
-    updatePolicy: add
-    valueType: bigdecimal
-    inputs:
-      - map: map_transfers
-```
-
-```rust
-// Store handler — accumulates balance per address
-#[substreams::handlers::store]
-pub fn store_balances(transfers: Transfers, store: StoreAddBigDecimal) {
-    for transfer in transfers.transfers {
-        let amount: BigDecimal = match transfer.amount.parse() {
-            Ok(a) => a,
-            Err(_) => {
-                substreams::log::warn!("invalid amount value: {}", transfer.amount);
-                continue;
-            }
-        };
-        store.add(0, &transfer.to, amount);
-    }
-}
-```
-
-### 5. Output: graph_out for Graph-Node Compatibility
-
-To keep using graph-node as the consumer (Substreams-powered subgraph), output `EntityChanges` from a `graph_out` module.
-
-**Protobuf definition** (embed this in your `proto/` directory — the upstream crate is unmaintained on modern toolchains):
-
-```protobuf
-// proto/entity.proto
-// Copy verbatim — field numbers, enum values, and message names must match
-// the canonical proto exactly or Graph Node will silently produce empty/garbage output.
-// Canonical source: https://github.com/streamingfast/substreams-sink-entity-changes/blob/develop/proto/sf/substreams/sink/entity/v1/entity.proto
-syntax = "proto3";
-package sf.substreams.sink.entity.v1;
-
-message EntityChanges {
-  repeated EntityChange entity_changes = 1;   // field 1, NOT 5
-}
-message EntityChange {
-  enum Operation { UNSET=0; CREATE=1; UPDATE=2; DELETE=3; FINAL=4; }
-  string entity       = 1;
-  string id           = 2;
-  uint64 ordinal      = 3;
-  Operation operation = 4;
-  repeated Field fields = 5;
-}
-message Value {
-  oneof typed {
-    int32  int32      = 1;
-    string bigdecimal = 2;
-    string bigint     = 3;
-    string string     = 4;
-    bytes  bytes      = 5;
-    bool   bool       = 6;
-    Array  array      = 10;
-  }
-}
-message Array {
-  repeated Value value = 1;
-}
-message Field {
-  string name      = 1;
-  Value  old_value = 2;   // required by canonical proto — omitting causes decode issues
-  Value  new_value = 3;
-}
-```
-
-**graph_out module (substreams.yaml):**
-
-```yaml
-  - name: graph_out
+  - name: db_out
     kind: map
     initialBlock: 6082465
     inputs:
-      - store: store_balances
-        mode: deltas
+      - map: map_transfers
     output:
-      type: proto:sf.substreams.sink.entity.v1.EntityChanges
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
 ```
 
-**graph_out Rust handler:**
+#### Step 4d — Deploy to Postgres or ClickHouse
 
-```rust
-use substreams::store::{DeltaBigDecimal, Deltas};
-use crate::pb::sf::substreams::sink::entity::v1::{
-    entity_change::Operation, EntityChange, EntityChanges, Field, Value,
-    value::Typed,
-};
+Load the **`substreams-sink-deploy` skill** for the full sink deployment workflow. The short version:
 
-#[substreams::handlers::map]
-pub fn graph_out(
-    store_deltas: Deltas<DeltaBigDecimal>,
-) -> Result<EntityChanges, substreams::errors::Error> {
-    let mut entity_changes = EntityChanges::default();
+```bash
+# Apply schema
+psql "$DATABASE_URL" -f schema.sql
 
-    for delta in store_deltas.deltas {
-        let address = delta.key.clone();
-
-        // First write → CREATE, subsequent → UPDATE (mirrors subgraph semantics)
-        let operation = if delta.old_value.is_zero() {
-            Operation::Create
-        } else {
-            Operation::Update
-        };
-
-        entity_changes.entity_changes.push(EntityChange {
-            entity: "Balance".to_string(),
-            id: address,
-            ordinal: delta.ordinal,
-            operation: operation as i32,
-            fields: vec![Field {
-                name: "amount".to_string(),
-                old_value: Some(Value {
-                    typed: Some(Typed::Bigdecimal(delta.old_value.to_string())),
-                }),
-                new_value: Some(Value {
-                    typed: Some(Typed::Bigdecimal(delta.new_value.to_string())),
-                }),
-            }],
-        });
-    }
-
-    Ok(entity_changes)
-}
+# Run the sink
+substreams-sink-sql run \
+  "psql://$DATABASE_URL" \
+  ./substreams.yaml \
+  db_out \
+  --on-module-hash-mistmatch=warn
 ```
 
-> **Next step — deploying the graph_out module**: Once your `graph_out` module is built, load the **`substreams-sink-deploy` skill** for instructions on running `substreams-sink-subgraph` to wire the output into Graph Node or the hosted subgraph network.
+For ClickHouse, the schema uses `ReplacingMergeTree` instead of plain `PRIMARY KEY` — see the `substreams-sink-deploy` skill for details.
+
+> **SQL Delta**: `substreams-database-change` v4 includes SQL Delta support. `tables.update_row()` automatically emits the correct `CREATE` / `UPDATE` / `DELETE` operation based on whether the row already exists, mirroring subgraph's `entity.save()` semantics without requiring explicit `store` modules for persistence.
+
+
+### 5. Output: graph_out ~~(deprecated)~~
+
+> **Graph Node no longer supports Substreams-powered subgraphs.** The `graph_out` / `EntityChanges` output pattern is deprecated and should not be used for new projects. Use the SQL sink (`db_out` + Postgres or ClickHouse) described in Section 4 instead.
+>
+> This section is retained for reference only, in case you are maintaining an existing `graph_out` module.
+
 
 ### 6. Dynamic Data Sources (Templates)
 
@@ -421,14 +367,15 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-substreams           = "0.7"
-substreams-ethereum  = "0.11"
-prost                = "0.13"
-prost-types          = "0.13"
-hex                  = "0.4"
-hex-literal          = "0.4"
-num-bigint           = "0.4"
-ethabi               = "18"
+substreams                = "0.7"
+substreams-ethereum       = "0.11"
+substreams-database-change = "4"   # for db_out / SQL sink
+prost                     = "0.13"
+prost-types               = "0.13"
+hex                       = "0.4"
+hex-literal               = "0.4"
+num-bigint                = "0.4"
+ethabi                    = "17"
 
 [build-dependencies]
 substreams-ethereum = "0.11"
@@ -451,7 +398,6 @@ network: mainnet
 protobuf:
   files:
     - transfers.proto
-    - entity.proto
   importPaths:
     - ./proto
 
@@ -469,22 +415,13 @@ modules:
     output:
       type: proto:myproject.v1.Transfers
 
-  - name: store_balances
-    kind: store
-    initialBlock: 6082465
-    updatePolicy: add
-    valueType: bigdecimal
-    inputs:
-      - map: map_transfers
-
-  - name: graph_out
+  - name: db_out
     kind: map
     initialBlock: 6082465
     inputs:
-      - store: store_balances
-        mode: deltas
+      - map: map_transfers
     output:
-      type: proto:sf.substreams.sink.entity.v1.EntityChanges
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
 ```
 
 ## Common Pitfalls
@@ -509,20 +446,19 @@ substreams build
 # Interactive visual debugger — best tool for inspecting module outputs during conversion
 substreams gui ./substreams.yaml map_transfers -s 6082465 -t +100
 
-# Test with a small range (use startBlock from the subgraph)
-substreams run ./substreams.yaml graph_out \
-  -s 6082465 -t +1000 \
-  -o jsonl
-
-# Verify entity output looks correct
+# Verify map output looks correct
 substreams run ./substreams.yaml map_transfers \
   -s 6082465 -t +100 \
   -o json
+
+# Verify database change output
+substreams run ./substreams.yaml db_out \
+  -s 6082465 -t +1000 \
+  -o jsonl
 ```
 
 ## References
 
-- [Substreams-powered subgraphs (The Graph docs)](https://thegraph.com/docs/en/substreams-powered-subgraphs/)
-- [substreams-sink-subgraph](https://github.com/streamingfast/substreams-sink-subgraph)
-- [substreams-entity-change proto](https://github.com/streamingfast/substreams-sink-entity-changes)
-- [Graph Node Substreams integration](https://github.com/graphprotocol/graph-node)
+- [Substreams Documentation](https://substreams.streamingfast.io)
+- [substreams-database-change crate](https://github.com/streamingfast/substreams-sink-database-changes)
+- [substreams-sink-sql (Postgres / ClickHouse)](https://github.com/streamingfast/substreams-sink-sql)
