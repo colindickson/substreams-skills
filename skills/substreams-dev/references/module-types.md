@@ -185,7 +185,14 @@ inputs:
 
 ## Index Modules
 
-Index modules filter blocks to improve query performance. They identify which blocks contain relevant data.
+Index modules emit a per-block list of string `Keys` describing what each block
+contains, so a **consuming module with a `blockFilter`** can skip blocks that
+can't match — no read, no decode, no execution. See
+[block-filtering.md](./block-filtering.md) for the complete guide.
+
+> The index module is `kind: blockIndex` with an `#[substreams::handlers::map]`
+> handler returning `Keys`. The index does nothing on its own — only a module
+> that declares a `blockFilter` referencing it gets blocks skipped.
 
 ### Characteristics
 
@@ -204,7 +211,7 @@ Index modules filter blocks to improve query performance. They identify which bl
 ### Example: Transfer Index
 
 ```rust
-#[substreams::handlers::index]
+#[substreams::handlers::map]   // index modules use the `map` handler, returning Keys
 pub fn index_transfers(transfers: Transfers) -> Result<Keys, Error> {
     let mut keys = Keys::default();
     
@@ -251,16 +258,34 @@ keys.keys.push(format!("token:{}:transfers", token_addr));
 
 ### Performance Impact
 
-Indexes dramatically improve performance by allowing the system to skip irrelevant blocks:
+Indexes dramatically reduce cost and run time by letting the engine skip blocks
+that can't match — but **only when a consuming module declares a `blockFilter`**.
+Listing the index as a plain dependency does NOT enable skipping.
+
+```yaml
+# The consuming module must reference the index in a blockFilter:
+- name: filtered_transfers
+  kind: map
+  blockFilter:
+    module: index_transfers
+    query:
+      string: "token:0xdac17f958d2ee523a2206206994597c13d831ec7"
+  inputs:
+    - map: map_transfers
+  output:
+    type: proto:my.types.Transfers
+```
 
 ```bash
-# Without index: processes all blocks
-substreams run map_transfers -s 17000000 -t +100000
+# map_transfers (no blockFilter): reads & decodes every block
+substreams run map_transfers      -s 17000000 -t +100000
 
-# With index: system automatically uses index to skip irrelevant blocks
-# when index_transfers is defined as a dependency
-substreams run map_transfers -s 17000000 -t +100000
+# filtered_transfers (blockFilter): engine skips non-matching blocks
+substreams run filtered_transfers -s 17000000 -t +100000
 ```
+
+See [block-filtering.md](./block-filtering.md) for the SQE query syntax and the
+`params: true` (runtime-configurable) form.
 
 ### Best Practices
 
@@ -312,9 +337,11 @@ modules:
       - map: map_events
   
   - name: index_activity
-    kind: index
+    kind: blockIndex
     inputs:
       - map: map_events
+    output:
+      type: proto:sf.substreams.index.v1.Keys
 ```
 
 ### Enrichment Pattern

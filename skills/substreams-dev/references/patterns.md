@@ -238,9 +238,11 @@ pub fn store_contract_registry(
     - map: map_raw_events
 
 - name: index_active_blocks
-  kind: index
+  kind: blockIndex
   inputs:
     - map: map_raw_events
+  output:
+    type: proto:sf.substreams.index.v1.Keys
 ```
 
 ### Enrichment Pipeline
