@@ -2,6 +2,44 @@
 
 Load this file when building a Substreams pipeline from an existing Solana program (smart contract).
 
+## Choose Your Conversion Path
+
+Before writing any code, identify what source material you have:
+
+| You have | Recommended path |
+|---|---|
+| **Anchor IDL** (`.json` file or on-chain IDL) | Use `substreams init` — it has built-in Solana IDL support and scaffolds the project for you automatically |
+| **Rust source code** of the program | Follow the manual steps in this guide — read the source to extract discriminators, account layouts, and instruction args |
+
+### Path A — Anchor IDL: Use `substreams init`
+
+If the program has an Anchor IDL (either as a `.json` file or published on-chain), `substreams init` can scaffold the entire Substreams project from it:
+
+```bash
+substreams init
+```
+
+Select **Solana** as the chain and provide the program ID when prompted. The CLI will:
+- Fetch the on-chain IDL (or accept a local `.json` file)
+- Generate the protobuf schema from the IDL's instruction and account types
+- Scaffold the Rust map handlers with correct discriminators pre-computed
+- Generate `substreams.yaml` with the correct `network: solana` and `initialBlock`
+
+After `substreams init` completes, review the generated code, set `initialBlock` to the program's deployment slot (not 0), then run `substreams build`.
+
+> **If `substreams init` succeeds, you do not need to follow the manual steps below.** Return here only if the IDL is unavailable, the program is non-Anchor (native/raw), or you need to customise beyond what the scaffold produces.
+
+### Path B — Rust Source: Manual Conversion
+
+Use this path when:
+- No IDL is available (non-Anchor or closed-source program)
+- You are converting from Rust source code directly
+- You need custom logic beyond what `substreams init` generates
+
+Follow the step-by-step guide below.
+
+---
+
 ## Conceptual Mapping
 
 | Solana / Anchor Concept | Substreams Equivalent |

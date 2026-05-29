@@ -131,6 +131,26 @@ export function handleTransfer(event: TransferEvent): void {
 
 **After (Rust, Substreams map module):**
 
+> **Ethereum address filtering — use foundational modules + Substreams Filters, not raw `block.logs()`**
+>
+> Iterating `block.logs()` and filtering by address in-handler works, but it processes every log in every block. For production Ethereum Substreams, the idiomatic approach is:
+>
+> 1. **Import a foundational module** such as `graph_node_ethereum_filter` or `filtered_events` from the [`substreams-ethereum`](https://github.com/streamingfast/substreams-ethereum) package. These modules use Substreams' native **index/filter** mechanism to skip blocks that contain no logs for your address — vastly reducing WASM execution cost.
+> 2. **Use a `filtered_events` input** in your manifest so your map module only receives pre-filtered log data:
+>
+> ```yaml
+> modules:
+>   - name: map_transfers
+>     kind: map
+>     initialBlock: 6082465
+>     inputs:
+>       - map: filtered_events   # only blocks containing logs for TOKEN_ADDRESS
+>     output:
+>       type: proto:myproject.v1.Transfers
+> ```
+>
+> For a single known contract address, the simpler in-handler filter shown below is acceptable for prototyping. Switch to the foundational module pattern for production or when indexing many blocks.
+
 ```rust
 use substreams::errors::Error;
 use substreams_ethereum::pb::eth::v2::Block;
@@ -148,7 +168,9 @@ pub fn map_transfers(block: Block) -> Result<Transfers, Error> {
     let mut transfers = Transfers::default();
 
     for log in block.logs() {
-        // Filter by contract address (replaces subgraph data source address filter)
+        // Filter by contract address (replaces subgraph data source address filter).
+        // In production, prefer a foundational filtered_events module as input
+        // so blocks with no matching logs are skipped entirely (see note above).
         if log.address() != TOKEN_ADDRESS {
             continue;
         }
