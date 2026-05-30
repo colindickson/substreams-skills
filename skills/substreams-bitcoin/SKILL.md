@@ -377,7 +377,7 @@ substreams run -e bitcoin \
   map_blocks -s 800000 -t +100
 
 # GUI mode
-substreams gui -e btc.substreams.pinax.network:443 \
+substreams gui -e bitcoin \
   my-substream.spkg \
   map_blocks -s 800000
 ```
