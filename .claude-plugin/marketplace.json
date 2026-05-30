@@ -1,17 +1,25 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "streamingfast-substreams",
+  "description": "StreamingFast Substreams agent skills for Claude Code — expert knowledge for developing, testing, and deploying high-performance blockchain data indexing on any EVM, Solana, NEAR, or other blockchains.",
   "owner": {
     "name": "StreamingFast",
     "email": "info@streamingfast.io"
-  },
-  "metadata": {
-    "description": "StreamingFast Substreams plugins for Claude Code"
   },
   "plugins": [
     {
       "name": "substreams-dev",
       "source": "./",
-      "description": "Agent Skills for Substreams development - high-performance blockchain data indexing and transformation"
+      "description": "Agent skills for Substreams development — build, debug, and deploy high-performance blockchain data indexing and transformation on EVM, Solana, NEAR and other blockchains using Rust modules and protobuf schemas.",
+      "category": "development",
+      "author": {
+        "name": "StreamingFast",
+        "email": "info@streamingfast.io"
+      },
+      "homepage": "https://docs.substreams.dev",
+      "repository": "https://github.com/streamingfast/substreams-skills",
+      "license": "Apache-2.0",
+      "keywords": ["substreams", "blockchain", "indexing", "ethereum", "solana", "rust", "protobuf", "web3", "streaming"]
     }
   ]
 }
