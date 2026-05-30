@@ -372,7 +372,7 @@ Different output script types require different parsing:
 substreams auth
 
 # Run against Bitcoin endpoint
-substreams run -e btc.substreams.pinax.network:443 \
+substreams run -e bitcoin \
   my-substream.spkg \
   map_blocks -s 800000 -t +100
 
