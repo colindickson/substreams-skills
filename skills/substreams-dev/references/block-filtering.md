@@ -242,49 +242,76 @@ inherited filter back to none.
 
 ---
 
-## Foundational index modules — don't reinvent them
+## Foundational modules — don't reinvent them
 
-Common chains ship **foundational packages** with index modules already written.
-Index outputs are cached and shared across runs, so for widely-used foundational
-modules the index has typically already been computed by an earlier run and your
-stream reuses it rather than recomputing it. Import and filter against these
-instead of writing your own:
+Most chains ship a **foundational package** that already contains the index
+modules **and ready-made `filtered_*` modules**. A `filtered_*` module applies
+the `blockFilter` (block-level skip) **and** emits only the records that match —
+so when you depend on one, the filtering is already done for you and there is
+nothing to re-filter in your handler. Index outputs are also cached and shared
+across runs, so for widely-used foundational modules the index has typically
+already been computed by an earlier run and your stream reuses it.
 
-- Ethereum / EVM: `index_events` (keys: `evt_addr:`, `evt_sig:`) in
-  [`substreams-foundational-modules/ethereum-common`](https://github.com/streamingfast/substreams-foundational-modules).
-- Injective / Cosmos: `index_events` keyed by event `type`.
+**Prefer depending directly on a foundational `filtered_*` module.** Import with
+short registry notation:
 
 ```yaml
 imports:
-  eth_common: https://spkg.io/streamingfast/ethereum-common-v0.3.0.spkg
+  eth_common: ethereum_common@v0.3.3
 
 modules:
-  - name: filtered_events
+  - name: map_my_data
     kind: map
-    blockFilter:
-      module: eth_common:index_events
-      query:
-        params: true
     inputs:
-      - params: string
-      - map: eth_common:all_events
+      - map: eth_common:filtered_events   # already block-skipped AND event-filtered
     output:
-      type: proto:my.types.v1.Events
+      type: proto:my.types.v1.MyData
+
+params:
+  # REQUIRED — override the foundational default (see warning below).
+  eth_common:filtered_events: "evt_addr:0xdac17f958d2ee523a2206206994597c13d831ec7"
 ```
+
+`ethereum_common@v0.3.3` provides (key namespaces in parentheses):
+
+| Module | Kind | Emits / filters on |
+|---|---|---|
+| `all_events` / `all_calls` | map | every event / call in the block |
+| `index_events` | blockIndex | `evt_addr:`, `evt_sig:` |
+| `index_calls` | blockIndex | `call_to:`, `call_from:`, `call_method:` |
+| `index_events_and_calls` | blockIndex | all of the above |
+| `filtered_events` / `filtered_calls` / `filtered_transactions` / `filtered_events_and_calls` | map | the matching events / calls / transactions |
+
+Solana's `solana_common@v0.4.0` provides `blocks_without_votes`, the
+`program_ids_without_votes` index (`program:<id>` keys), and the pre-filtered
+`transactions_by_programid_without_votes` (and `..._and_account_...`) maps.
+
+> **You MUST override the params query.** Every `filtered_*` module ships a
+> *default* params filter (e.g. `ethereum_common`'s `filtered_events` defaults to
+> a fixed `evt_sig:0x1730…`). If you don't override it you silently emit the
+> default's data, not yours. Override it in your manifest `params:` (keyed by the
+> imported module, e.g. `eth_common:filtered_events`) and, at minimum, per
+> request with `-p eth_common:filtered_events="…"`. Match keys exactly —
+> **0x-prefixed lowercase hex** (EVM addresses copied in checksum/mixed case will
+> not match).
 
 ---
 
-## Transaction / instruction / log filtering (in-handler precision)
+## Transaction / instruction / log filtering
 
-Block filtering decides **which blocks to process**. Within a kept block you
-still iterate and must discard irrelevant transactions, logs, or instructions.
-This in-handler filtering controls **output size and downstream work**, but on
-its own it does **not** skip block reads — every block is still read and decoded.
+**First choice: depend on a foundational `filtered_*` module.** As above,
+`eth_common:filtered_events` / `filtered_calls` / `filtered_transactions` (and
+Solana's `solana_common:transactions_by_programid_without_votes`) already apply
+the `blockFilter` **and** return only the matching records — there is nothing to
+re-filter in your handler. Reach for in-handler filtering only when you roll your
+own `blockFilter` (no foundational module fits) or need finer precision than the
+foundational module provides.
 
-**Use both together:** a block index to skip blocks, plus in-handler filtering
-for per-record precision inside the blocks that remain.
+### EVM — when rolling your own
 
-### EVM — filter logs/transactions by address & signature
+Prefer `eth_common:filtered_events` (above). If you must filter in-handler — a
+custom output type, or a combination no foundational module covers — match on
+**lowercase** address + signature:
 
 ```rust
 const USDT: [u8; 20] = hex!("dac17f958d2ee523a2206206994597c13d831ec7");
@@ -307,31 +334,33 @@ fn map_transfers(block: Block) -> Result<Transfers, Error> {
 }
 ```
 
-### Solana — filter transactions by signature / program id via `params`
+### Solana — transactions are pre-filtered, instructions are not
 
-```rust
-#[substreams::handlers::map]
-fn map_filter_transactions(params: String, blk: Block)
-    -> Result<Transactions, Vec<Error>>
-{
-    let filters = parse_filters_from_params(&params)?;   // e.g. "signature=..." or "program=..."
-    let txs = blk.transactions
-        .iter()
-        .filter(|tx| apply_filter(tx, &filters))         // keep only matching txs
-        .map(/* map to output */)
-        .collect();
-    Ok(Transactions { transactions: txs })
-}
-```
+Depend on `solana_common:transactions_by_programid_without_votes` to receive only
+the transactions that touch your program — block-skipped **and**
+transaction-filtered for you, via its `program:<id>` params query:
 
 ```yaml
+imports:
+  solana_common: solana_common@v0.4.0
+
+modules:
+  - name: map_my_program
+    kind: map
+    inputs:
+      - map: solana_common:transactions_by_programid_without_votes
+    output:
+      type: proto:my.types.v1.MyData
+
 params:
-  map_filter_transactions: "program=6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
+  # REQUIRED — the default targets a different program
+  solana_common:transactions_by_programid_without_votes: "program:6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
 ```
 
-For Solana, pair this with a `blockIndex` keyed on `program:<id>` so blocks that
-never touch the program are skipped before the handler runs (see the Pump.Fun
-pattern: `query.string: "program:6EF8rr..."`).
+**Instruction-level filtering within those transactions is still manual.** The
+foundational module narrows you to the right transactions; you then iterate the
+instructions yourself and keep the ones whose program id / discriminator you want
+(see [solana.md](./solana.md) for `walk_instructions()`).
 
 ---
 
@@ -343,7 +372,7 @@ digraph filter_decision {
     "Does the substreams\ncare about only\nsome blocks?" [shape=diamond];
     "Is the target identifiable\nby a key\n(address / sig / program\n/ event type)?" [shape=diamond];
     "Foundational index\nalready exists\nfor this chain?" [shape=diamond];
-    "Filter against\nforeign index module\n(import spkg)" [shape=box];
+    "Depend on a foundational\nfiltered_* module" [shape=box];
     "Write a blockIndex module\n+ blockFilter query" [shape=box];
     "No block filter;\nfilter in-handler only" [shape=box];
 
@@ -351,7 +380,7 @@ digraph filter_decision {
     "Does the substreams\ncare about only\nsome blocks?" -> "Is the target identifiable\nby a key\n(address / sig / program\n/ event type)?" [label="yes"];
     "Is the target identifiable\nby a key\n(address / sig / program\n/ event type)?" -> "No block filter;\nfilter in-handler only" [label="no"];
     "Is the target identifiable\nby a key\n(address / sig / program\n/ event type)?" -> "Foundational index\nalready exists\nfor this chain?" [label="yes"];
-    "Foundational index\nalready exists\nfor this chain?" -> "Filter against\nforeign index module\n(import spkg)" [label="yes"];
+    "Foundational index\nalready exists\nfor this chain?" -> "Depend on a foundational\nfiltered_* module" [label="yes"];
     "Foundational index\nalready exists\nfor this chain?" -> "Write a blockIndex module\n+ blockFilter query" [label="no"];
 }
 ```
@@ -368,9 +397,11 @@ contains data you need (e.g. per-block gas stats).
 | Mistake | Consequence | Fix |
 |---|---|---|
 | Index module exists but no `blockFilter` on consumer | No skipping; full cost | Add `blockFilter:` to the consuming module |
+| **Not overriding a foundational `filtered_*` module's default params** | Silently emits the *default* filter's data, not yours | Override at manifest level (`eth_common:filtered_events: "…"`) **and** at least per request (`-p eth_common:filtered_events="…"`) |
+| **Address in checksum / mixed case** | Never matches — values are compared by literal equality | Use **0x-prefixed lowercase** hex (EVM checksum addresses must be lowercased) |
 | Query namespace mismatch (`address:` vs `evt_addr:`) | Empty output, silent | Match the exact key prefix the index emits |
-| Writing a custom index when a foundational one exists | Wasted work, no precomputed index | Import the foundational spkg and filter its index |
-| Block filter only, expecting per-record filtering | Output includes unwanted records from kept blocks | Also filter in-handler |
+| Hand-rolling an index when a foundational `filtered_*` module exists | Wasted work; re-filtering already done for you | Depend on the foundational `filtered_*` module |
+| Rolling your own `blockFilter` but expecting per-record filtering | Output includes unwanted records from kept blocks | Depend on a foundational `filtered_*` module, or also filter in-handler |
 | Using `\|` or `and`/`or` words in SQE | Parse error | Use `\|\|`, `&&`, `-` |
 
 ---

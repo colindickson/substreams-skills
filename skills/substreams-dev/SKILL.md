@@ -298,12 +298,16 @@ fn index_events(events: Events) -> Result<Keys, Error> {
   `blockFilter` gets blocks skipped — listing the index as a dependency is not
   enough.
 - Query namespace must match the emitted key prefix exactly (`evt_addr:` vs
-  `address:`) — a mismatch silently matches no blocks.
-- **Don't reinvent indexes.** Most chains ship foundational packages with index
-  modules; their cached outputs are typically already computed by earlier runs,
-  so import the spkg and filter against e.g. `eth_common:index_events`.
-- Block filtering skips whole blocks; **in-handler filtering** (by address /
-  signature / program id) still narrows records *within* kept blocks. Use both.
+  `address:`), and values are matched by **literal equality** — use 0x-prefixed
+  **lowercase** hex (EVM checksum/mixed-case addresses never match).
+- **Don't reinvent.** Most chains ship a foundational package whose `filtered_*`
+  modules already apply the `blockFilter` *and* return only matching records, so
+  depend on those directly (e.g. `imports: { eth_common: ethereum_common@v0.3.3 }`
+  → `map: eth_common:filtered_events`). You **must override the default params**
+  query (`eth_common:filtered_events: "…"`), or you silently emit the default's
+  data. In-handler filtering is only needed when you roll your own `blockFilter`,
+  or for Solana instruction-level filtering (transactions are pre-filtered, but
+  instructions within them are not).
 
 **Full guide (SQE syntax, `params` vs `string`, `use` inheritance, foundational
 indexes, Solana/EVM examples, decision flowchart):**
