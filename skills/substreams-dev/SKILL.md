@@ -130,6 +130,7 @@ until you have the answers.
 | **Output / sink type** | `substreams run`, SQL sink, graph-out, custom sink? |
 | **Block range or time window** | `initialBlock` and test range; performance implications |
 | **Thresholds or filters** | Min value, token allowlist, address filter, etc. |
+| **Block sparsity** | Does the target appear in only *some* blocks? If so, a **block index filter** is a near-mandatory cost optimization — see "Block & Transaction Filtering" |
 
 **If any item is unknown**, respond with something like:
 
@@ -178,15 +179,31 @@ immediately.
     - map: map_events
 ```
 
-**Index Module** - Filters blocks for efficient querying
+**Index Module** (`kind: blockIndex`) - Emits per-block `Keys` so downstream
+modules can **skip blocks**. The handler is `#[substreams::handlers::map]`
+returning `Keys`.
 ```yaml
 - name: index_transfers
-  kind: index
+  kind: blockIndex
   inputs:
     - map: map_events
   output:
     type: proto:sf.substreams.index.v1.Keys
+
+# A consuming module skips non-matching blocks via `blockFilter`:
+- name: filtered_transfers
+  kind: map
+  blockFilter:
+    module: index_transfers   # references the blockIndex module above
+    query:
+      string: "token:0xdac17f958d2ee523a2206206994597c13d831ec7"
+  inputs:
+    - map: map_events
+  output:
+    type: proto:my.types.Transfers
 ```
+> The index alone does nothing — **only a module with an explicit `blockFilter`
+> gets blocks skipped.** See "Block & Transaction Filtering (Cost-Critical)" below.
 
 > **`initialBlock` guidance:**
 > ```yaml
@@ -208,6 +225,94 @@ immediately.
 > For reference: the T3.2 golden uses `initialBlock: 17999900` to cover a
 > `-s 18000000 -t +100` acceptance window.
 
+### Block & Transaction Filtering (Cost-Critical)
+
+**Whenever a Substreams targets only a subset of blocks — a specific contract,
+program, event signature, account, or transaction type — add a block index
+filter. Be aggressive about this.** It is the biggest win available for your
+own development experience and your bill.
+
+**What you get:**
+- **Lower cost** — you're billed for the blocks the engine actually processes.
+  A `blockFilter` skips the blocks that can't match, so a contract active in
+  0.5% of blocks costs roughly 0.5% as much.
+- **Much faster runs** — backfills and historical syncs that would take hours
+  finish in minutes, because the engine jumps straight past irrelevant blocks.
+- **Tighter iteration** — quicker rebuild/run cycles while developing, and a
+  GUI progress bar that races across skipped ranges instead of crawling.
+- **Less noise downstream** — your sink ingests only relevant blocks, so
+  databases stay smaller and reorg handling has less to reconcile.
+
+**The pattern (three pieces):**
+
+```yaml
+# 1. Index module — kind `blockIndex`, output `Keys`
+- name: index_events
+  kind: blockIndex
+  inputs:
+    - map: all_events
+  output:
+    type: proto:sf.substreams.index.v1.Keys
+
+# 2. Consuming module — declares blockFilter to skip non-matching blocks
+- name: filtered_events
+  kind: map
+  blockFilter:
+    module: index_events
+    query:
+      params: true          # SQE query from `params` (or: string: "<expr>")
+  inputs:
+    - params: string
+    - map: all_events
+  output:
+    type: proto:my.types.Events
+```
+
+The index handler is a **`map` handler** returning `Keys` (a `repeated string`
+of labels you choose, e.g. `evt_addr:0x...`, `evt_sig:0x...`, `program:<id>`):
+
+```rust
+#[substreams::handlers::map]
+fn index_events(events: Events) -> Result<Keys, Error> {
+    let mut keys = Keys::default();
+    for e in events.events {
+        if let Some(log) = e.log {
+            if let Some(t0) = log.topics.get(0) {
+                keys.keys.push(format!("evt_sig:0x{}", Hex::encode(t0)));
+            }
+            keys.keys.push(format!("evt_addr:0x{}", Hex::encode(&log.address)));
+        }
+    }
+    Ok(keys)
+}
+```
+
+**Query (SQE):** boolean expression over keys — `&&` (and), `||` (or), `-`
+(not), `( )` grouping. A bare term must match a key exactly:
+`"evt_addr:0xA && -evt_addr:0xspam"`.
+
+**Critical rules:**
+- The index module is `kind: blockIndex` with an `#[substreams::handlers::map]`
+  handler returning `Keys`.
+- The index does **nothing automatically**. Only a module with an explicit
+  `blockFilter` gets blocks skipped — listing the index as a dependency is not
+  enough.
+- Query namespace must match the emitted key prefix exactly (`evt_addr:` vs
+  `address:`), and values are matched by **literal equality** — use 0x-prefixed
+  **lowercase** hex (EVM checksum/mixed-case addresses never match).
+- **Don't reinvent.** Most chains ship a foundational package whose `filtered_*`
+  modules already apply the `blockFilter` *and* return only matching records, so
+  depend on those directly (e.g. `imports: { eth_common: ethereum_common@v0.3.3 }`
+  → `map: eth_common:filtered_events`). You **must override the default params**
+  query (`eth_common:filtered_events: "…"`), or you silently emit the default's
+  data. In-handler filtering is only needed when you roll your own `blockFilter`,
+  or for Solana instruction-level filtering (transactions are pre-filtered, but
+  instructions within them are not).
+
+**Full guide (SQE syntax, `params` vs `string`, `use` inheritance, foundational
+indexes, Solana/EVM examples, decision flowchart):**
+see [references/block-filtering.md](./references/block-filtering.md).
+
 ### Debugging Checklist
 
 When modules produce unexpected results:
@@ -228,7 +333,9 @@ When modules produce unexpected results:
 
 ### Performance Optimization
 
-* **Use indexes** to skip irrelevant blocks
+* **Add a `blockFilter`** to skip irrelevant blocks entirely (biggest cost
+  lever) — see "Block & Transaction Filtering (Cost-Critical)" above and
+  [references/block-filtering.md](./references/block-filtering.md)
 * **Minimize store size** by storing only necessary data
 * **Production mode** enables parallel execution: `--production-mode`
 * **Module granularity**: Smaller, focused modules perform better
@@ -1027,6 +1134,7 @@ Solana uses a different block model, instruction paradigm, and account system th
 * [Official Documentation](https://substreams.streamingfast.io)
 * [Module Types Guide](./references/module-types.md)
 * [Manifest Specification](./references/manifest-spec.md)
+* [Block & Transaction Filtering](./references/block-filtering.md)
 * [Common Patterns](./references/patterns.md)
 * [Supported Networks](./references/networks.md)
 * [Solana Development](./references/solana.md)

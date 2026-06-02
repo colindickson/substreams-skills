@@ -45,7 +45,7 @@ modules:
       - map: map_events
 
   - name: index_transfers
-    kind: index
+    kind: blockIndex
     initialBlock: 12369621
     inputs:
       - map: map_events
@@ -206,20 +206,50 @@ Aggregates data across blocks:
   doc: "Accumulates transfer totals by token"
 ```
 
-### Index Module
+### Index Module + `blockFilter`
 
-Filters blocks for efficient querying:
+An index module (`kind: blockIndex`) emits per-block `Keys`. A consuming module
+declares a `blockFilter` so the engine **skips blocks that can't match** — the
+biggest cost optimization available. The index alone does nothing; the
+`blockFilter` is what enables skipping. Full guide:
+[block-filtering.md](./block-filtering.md).
 
 ```yaml
+# Index module — kind `blockIndex`, output `Keys`
 - name: index_transfers
-  kind: index
+  kind: blockIndex
   initialBlock: 12369621
   inputs:
     - map: map_events
   output:
     type: proto:sf.substreams.index.v1.Keys
-  doc: "Indexes blocks containing transfers"
+  doc: "Emits token:<addr> keys for blocks containing transfers"
+
+# Consuming module — blockFilter references the index + an SQE query
+- name: filtered_transfers
+  kind: map
+  blockFilter:
+    module: index_transfers
+    query:
+      string: "token:0xdac17f958d2ee523a2206206994597c13d831ec7"
+      # or, for a runtime-configurable query, use:
+      #   params: true   # and add a `- params: string` input
+  inputs:
+    - map: map_events
+  output:
+    type: proto:my.types.Transfers
 ```
+
+**`blockFilter` fields:**
+
+| Field | Description |
+|---|---|
+| `module` | Name of the `blockIndex` module to read keys from |
+| `query.string` | A static SQE expression: `&&`, `\|\|`, `-`, `( )` over keys |
+| `query.params` | `true` to read the SQE expression from the module's `params` input at runtime |
+
+A module with `use:` inherits the used module's `blockFilter`; set
+`blockFilter: {}` to clear an inherited filter.
 
 ## Input Types
 
