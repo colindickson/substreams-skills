@@ -131,12 +131,12 @@ export function handleTransfer(event: TransferEvent): void {
 
 **After (Rust, Substreams map module):**
 
-> **Ethereum address filtering — prefer foundational `filtered_events` modules**
+> **Ethereum address filtering — use the foundational `filtered_events` module (block filter)**
 >
-> Iterating `block.logs()` and filtering in-handler works for quick prototypes, but it still scans every block. For production, consume the foundational Ethereum Common filtered module:
->
-> 1. Import `ethereum_common@v0.3.3` and use `eth_common:filtered_events` as your input (it already applies block-level filtering + event filtering).
-> 2. Override its params query with your target key (`evt_addr:0x...`) using **0x-prefixed lowercase hex**.
+> Iterating `block.logs()` and filtering in-handler still processes every block. Use
+> `ethereum_common`'s `filtered_events` module instead: it applies a **block-level skip**
+> (blocks with no matching logs are never decoded or executed) **and** returns only the
+> matching events — so your handler processes far fewer blocks and pays far less.
 >
 > ```yaml
 > imports:
@@ -145,17 +145,26 @@ export function handleTransfer(event: TransferEvent): void {
 > modules:
 >   - name: map_transfers
 >     kind: map
->     initialBlock: 6082465
+>     initialBlock: 6082465   # from subgraph startBlock
 >     inputs:
->       - map: eth_common:filtered_events
+>       - map: eth_common:filtered_events   # block-skipped + event-filtered for you
 >     output:
 >       type: proto:myproject.v1.Transfers
 >
 > params:
+>   # REQUIRED — must override the foundational default or you silently emit wrong data.
+>   # Use 0x-prefixed lowercase hex (EVM checksum/mixed-case addresses will not match).
 >   eth_common:filtered_events: "evt_addr:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 > ```
 >
-> Keep the in-handler filter shown below as a fallback only when no foundational `filtered_*` module fits your use case.
+> `ethereum_common@v0.3.3` also provides `filtered_calls`, `filtered_transactions`, and
+> `filtered_events_and_calls`. For the full block-filtering guide including the SQE query
+> syntax, rolling a custom `blockIndex`, and Solana's `solana_common` equivalents, see
+> the `substreams-dev` skill's `references/block-filtering.md`.
+>
+> The in-handler address check shown below is a fallback for when no foundational
+> `filtered_*` module covers your use case. When depending on `eth_common:filtered_events`,
+> you do **not** need an in-handler address check — the module has already filtered for you.
 
 ```rust
 use substreams::errors::Error;

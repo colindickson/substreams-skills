@@ -98,6 +98,6 @@ substreams run ./substreams.yaml <output_module> -s <start_block> -t +100 -o jso
 
 - [Substreams Documentation](https://substreams.streamingfast.io)
 - [Substreams GitHub](https://github.com/streamingfast/substreams)
-- [substreams-sink-sql (Postgres / ClickHouse)](https://github.com/streamingfast/substreams-sink-sql)
+- [substreams-sql skill](../substreams-sql/SKILL.md)
 - [Subgraph Conversion Reference](./references/subgraph.md)
 - [Solana Contract Conversion Reference](./references/solana-contract.md)
