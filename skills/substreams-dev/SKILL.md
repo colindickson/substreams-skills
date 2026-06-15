@@ -36,6 +36,7 @@ Substreams is a powerful blockchain indexing technology that enables:
 ```
 my-substreams/
 ├── substreams.yaml              # Manifest (manual)
+├── README.md                    # Package documentation for substreams.dev registry (manual)
 ├── schema.sql                   # SQL schema for sinks (manual)
 ├── Cargo.toml                   # Rust dependencies (manual)
 ├── build.rs                     # ABI code generation (manual, optional)
@@ -157,7 +158,55 @@ immediately.
 3. **Implement modules**: Write Rust handlers in `src/lib.rs`
 4. **Build**: Run `substreams build` to compile to `.spkg`
 5. **Test**: Run `substreams run` with small block range (recommended: 1000 blocks)
-6. **Deploy**: Publish to registry or deploy as service
+6. **Document**: Create `README.md` for the substreams.dev registry (see "README for substreams.dev Registry" below)
+7. **Deploy**: Publish to registry or deploy as service
+
+### README for substreams.dev Registry
+
+Every Substreams package published to the registry **must** include a `README.md`. This file is the primary documentation shown on [substreams.dev](https://substreams.dev) and is the first thing consumers see.
+
+**Required sections:**
+
+```markdown
+# <Package Title>
+
+<One-sentence description of what this package indexes and outputs.>
+
+## Overview
+
+<2-3 sentences: what data it captures, what protocol/chain, and intended use case.>
+
+## Modules
+
+| Module | Kind | Output Type | Description |
+|--------|------|-------------|-------------|
+| `map_events` | map | `proto:my.types.v1.Events` | Extracts transfer events from each block |
+| `store_totals` | store | `int64` | Accumulates running totals per token |
+
+## Prerequisites
+
+- [`substreams` CLI](https://substreams.streamingfast.io/documentation/consume/installing-the-cli) installed
+- Authenticated: `substreams auth`
+
+## Quick Start
+
+```bash
+substreams run -e mainnet.eth.streamingfast.io \
+  substreams.yaml map_events \
+  -s 18000000 -t +1000
+```
+
+## References
+
+- [Substreams Documentation](https://substreams.streamingfast.io)
+- [substreams.dev Registry](https://substreams.dev)
+```
+
+**Rules:**
+- Title matches `package.name` in `substreams.yaml`
+- Module table lists every `name:` entry from the manifest — consumers need this to know what to `substreams run`
+- Quick Start uses a real block range, not a placeholder
+- Do NOT include a "Contributing" or "License" section — the registry pulls license from the manifest
 
 ### Module Types
 
