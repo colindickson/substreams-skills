@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- New `substreams-bitcoin` skill — guidance for developing Substreams on Bitcoin.
+- New `substreams-convert` skill — convert a subgraph to Substreams, referenced from `substreams-dev` (BLO-869).
+- `substreams-dev` — README creation step in the development workflow (#14).
+- `substreams-dev` — block/transaction filtering guidance (#12).
+- `substreams-dev` — `substreams init` path for Solana IDL and Ethereum address-filtering guidance.
+- SQL sink for storage documentation.
+
+### Changed
+
+- Prepped plugin manifests and enhanced `marketplace.json` descriptions for Anthropic marketplace submission (#8).
+
+### Deprecated
+
+- Marked `graph_out` as deprecated in favor of the SQL sink.
+
+### Fixed
+
+- `substreams-dev` — skill quality and correctness improvements.
+- `substreams-convert` — improved Ethereum filter section and updated SQL skill link (#13).
+- Corrected Substreams performance command examples and test instructions (#10).
+- Fixed `ethabi` version and Solana paths in `SKILL.md`.
+
+### Security
+
+- Resolved Snyk security findings in skill examples (#9).
+
 ## [1.1.0](https://github.com/streamingfast/substreams-skills/releases/tag/v1.1.0)
 
 ### Added
