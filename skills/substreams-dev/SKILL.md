@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, opencode, vscode, windsurf]
 metadata:
-  version: 1.2.0
+  version: 1.3.0
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -458,7 +458,7 @@ See [references/manifest-spec.md](./references/manifest-spec.md) for complete sp
 specVersion: v0.1.0
 package:
   name: my-substreams
-  version: v1.2.0
+  version: 1.3.0
   url: https://github.com/myorg/my-substreams   # set it — silences "URL (package.url) is not set"
   description: Description of what this substreams does   # set it — silences the description warning
 ```

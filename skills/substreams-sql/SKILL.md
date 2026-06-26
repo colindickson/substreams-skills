@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.2.0
+  version: 1.3.0
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -122,7 +122,7 @@ The manifest requires importing the database changes and sink-sql protodefs spkg
 specVersion: v0.1.0
 package:
   name: my-substreams-sql
-  version: v1.2.0
+  version: 1.3.0
   url: https://github.com/myorg/my-substreams-sql   # set it — avoids package.url warning
   description: SQL sink substreams for <protocol>     # set it — avoids package.description warning
 
