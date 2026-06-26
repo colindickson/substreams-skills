@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility:
   platforms: [claude-code, cursor, vscode, windsurf]
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   author: StreamingFast
   documentation: https://substreams.streamingfast.io
 ---
@@ -122,7 +122,7 @@ The manifest requires importing the database changes and sink-sql protodefs spkg
 specVersion: v0.1.0
 package:
   name: my-substreams-sql
-  version: v0.1.0
+  version: 1.2.0
 
 imports:
     # Use the latest v4+ spkg so the proto FQN matches the Rust crate:
