@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- `substreams-dev` — document the non-fatal package metadata build warnings (`package.doc` deprecated, missing `package.url`/`package.description`, missing `README.md`) and how to avoid them.
+- `substreams-dev`, `substreams-sql`, `substreams-bitcoin`, `substreams-convert` — manifest examples now set `package.url` + `package.description` and use a `v`-prefixed version so scaffolded packages build without metadata warnings.
 ### Added
 
 - `substreams-dev` — registry package discovery via the new agentic search API (`GET /v1/registry/packages`), including `spkg` vs `reference` usage guidance.
