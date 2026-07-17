@@ -58,8 +58,8 @@ Follow the step-by-step guide below.
 ```toml
 # Cargo.toml — key dependencies for Solana Substreams
 [dependencies]
-substreams        = "0.6"          # Stay on 0.6.x — substreams-solana 0.14.x requires it
-substreams-solana = "0.14.3"       # Block model + walk_instructions helper
+substreams        = "0.7"          # Matched pair with substreams-solana 0.15
+substreams-solana = "0.15"         # Block model + walk_instructions helper
 bs58              = "0.4"          # base58 encode/decode for pubkeys
 prost             = "0.13"
 prost-types       = "0.13"
@@ -73,9 +73,9 @@ opt-level = "s"
 strip     = "debuginfo"
 ```
 
-> **Version compatibility**: `substreams-solana 0.14.x` requires `substreams = "0.6"`. Check [crates.io/crates/substreams-solana](https://crates.io/crates/substreams-solana) for a newer release that may support `substreams = "0.7"` before assuming these exact versions. The compatibility matrix changes over time.
+> **Version compatibility**: use a **matched pair** only — `substreams = "0.7"` + `substreams-solana = "0.15"` (default), or legacy `substreams = "0.6"` + `substreams-solana = "0.14.x"`. Check [crates.io/crates/substreams-solana](https://crates.io/crates/substreams-solana) before assuming these pins forever.
 >
-> **WARNING — do NOT mix `substreams = "0.7"` with `substreams-solana = "0.14"`**. This causes linker errors ("symbol multiply defined") at build time. The `substreams-dev` skill's Cargo.toml template recommends `0.7` for Ethereum — that does NOT apply to Solana. Always check the `substreams-solana` crate page for the currently required `substreams` version before starting.
+> **WARNING — do NOT mix majors** (`0.7` with `0.14`, or `0.6` with `0.15`). That causes dual dependency trees / linker errors ("symbol multiply defined") at build time.
 
 ## Step-by-Step Conversion
 
@@ -178,8 +178,8 @@ For non-Anchor programs, check the program's source or documentation. Common pat
 
 ```rust
 use substreams::errors::Error;
+use substreams_solana::b58;
 use substreams_solana::pb::sf::solana::r#type::v1::Block;
-use substreams_solana::{b58, Block as BlockExt};
 
 use crate::pb::myproject::v1::{Swap, Swaps};
 
@@ -287,10 +287,11 @@ use base64::{engine::general_purpose, Engine as _};
 
 // Anchor event log prefix: "Program data: <base64>"
 // Events are emitted as CPI self-calls with log data.
-// Substreams-Solana exposes log messages via trx meta:
+// Use the meta *field* (Option<TransactionStatusMeta>), not meta() —
+// ConfirmedTransaction::meta() is a different helper and not what you want for logs.
 
 for trx in block.transactions() {
-    if let Some(meta) = &trx.meta() {
+    if let Some(meta) = trx.meta.as_ref() {
         for log in &meta.log_messages {
             if let Some(encoded) = log.strip_prefix("Program data: ") {
                 if let Ok(bytes) = general_purpose::STANDARD.decode(encoded) {
@@ -312,14 +313,15 @@ for trx in block.transactions() {
 
 Substreams does not have direct account state access like `AccountLoader` in Anchor. For account data:
 
-**Option A — Parse account state from transaction `preTokenBalances` / `postTokenBalances`** (for SPL Token accounts):
+**Option A — Parse account state from transaction `pre_token_balances` / `post_token_balances`** (for SPL Token accounts):
 
 ```rust
-if let Some(meta) = trx.meta() {
+if let Some(meta) = trx.meta.as_ref() {
     for balance in &meta.pre_token_balances {
         let mint = &balance.mint;
         let owner = &balance.owner;
-        let amount: u64 = balance.ui_token_amount
+        let amount: u64 = balance
+            .ui_token_amount
             .as_ref()
             .and_then(|a| a.amount.parse().ok())
             .unwrap_or(0);
@@ -328,17 +330,19 @@ if let Some(meta) = trx.meta() {
 }
 ```
 
-**Option B — Decode `writable_accounts` from the transaction** (for custom account layouts):
+**Option B — Resolved account keys for the transaction** (message keys + loaded ATL addresses):
 
 ```rust
-// Transaction accounts accessible via:
-let accounts = trx.resolved_accounts();  // Vec<Vec<u8>> — all accounts in order
-// account at index 0 = accounts[0] (pubkey bytes)
+// Vec<&Vec<u8>> — pubkey bytes in wire order (message keys, then writable ATL, then readonly ATL)
+let accounts = trx.resolved_accounts();
+// Prefer ix_view.accounts() when decoding a specific instruction (already resolved Address values).
 ```
 
-> **Substreams does not expose raw account data bytes** from account state at a given slot. If you need account storage, you must:
+> **Substreams does not expose raw account *data* bytes** from account state at a given slot. If you need account storage, you must:
 > 1. Parse data fields emitted in transaction instruction data or logs, or
 > 2. Use a `store` module to accumulate state derived from instructions.
+>
+> Full Solana loops/filters → **`substreams-solana` skill**.
 
 ### 8. Adding a Store for Aggregation
 
@@ -350,18 +354,20 @@ If the original program tracks cumulative state (e.g., total volume), use a `sto
     kind: store
     initialBlock: 320000000
     updatePolicy: add
-    valueType: int64
+    valueType: bigint          # not int64 — u64 token amounts must not cast through i64
     inputs:
       - map: map_swaps
 ```
 
 ```rust
-use substreams::store::{StoreAdd, StoreAddInt64};
+use substreams::scalar::BigInt;
+use substreams::store::{StoreAdd, StoreAddBigInt, StoreNew};
 
 #[substreams::handlers::store]
-pub fn store_volume(swaps: Swaps, store: StoreAddInt64) {
+pub fn store_volume(swaps: Swaps, store: StoreAddBigInt) {
     for swap in swaps.swaps {
-        store.add(0, &swap.amm, swap.amount_in as i64);
+        // BigInt from u64 — never `amount as i64` (truncates / wraps large amounts)
+        store.add(0, &swap.amm, &BigInt::from(swap.amount_in));
     }
 }
 ```
@@ -422,9 +428,12 @@ substreams run ./substreams.yaml map_swaps \
 |---|---|
 | Using `message.instructions` | Always use `trx.walk_instructions()` — misses CPI inner instructions |
 | Forgetting failed transactions | `block.transactions()` filters to **successful** txns only; use `&block.transactions` for all |
+| `use substreams_solana::Block as BlockExt` | Dead import — methods are inherent on `pb::…::Block`; import `b58` + `pb` only |
+| `trx.meta()` for logs / token balances | Use `trx.meta.as_ref()` → `TransactionStatusMeta` |
+| `amount as i64` in stores | Use `valueType: bigint` + `StoreAddBigInt` / `BigInt::from(u64)` |
 | Wrong discriminator bytes | Pre-compute with SHA256 and hardcode; verify against known transactions |
 | Missing account index bounds check | Check `accounts.len() >= N` before indexing |
-| `substreams = "0.7"` with `substreams-solana = "0.14"` | Use `substreams = "0.6"` for Solana |
+| Mismatched `substreams` / `substreams-solana` majors | Use `0.7`+`0.15` or `0.6`+`0.14.x` only |
 | `initialBlock: 0` | Use program deployment slot — full Solana history is massive |
 | Parsing Anchor events from `message.instructions` | Events are emitted in log messages, not instruction data |
 
@@ -434,4 +443,4 @@ substreams run ./substreams.yaml map_swaps \
 - [substreams-solana crate](https://crates.io/crates/substreams-solana)
 - [Anchor IDL reference](https://www.anchor-lang.com/docs/idl)
 - [Solana Program Library (SPL)](https://github.com/solana-labs/solana-program-library)
-- [Solana Substreams reference file](../../substreams-dev/references/solana.md)
+- **`substreams-solana` skill** — block access, `walk_instructions()`, SPL/Anchor decoding
