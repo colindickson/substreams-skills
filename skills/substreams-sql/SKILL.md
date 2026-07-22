@@ -153,7 +153,7 @@ tables.upsert_row("aggregates", [("day", day.as_str()), ("token", token.as_str()
 specVersion: v0.1.0
 package:
   name: my_substreams_sql
-  version: v0.1.0                                   # must be v-prefixed
+  version: 1.4.0
   url: https://github.com/myorg/my-substreams-sql   # set both to avoid build warnings
   description: SQL sink substreams for <protocol>
 
